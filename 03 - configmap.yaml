@@ -71,7 +71,7 @@ data:
     async def ollama_push_model(data: OllamaPushInput) -> Dict[str, Any]: """Envia um modelo local..."""; payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/push", payload)
     @mcp.tool()
     async def ollama_generate_embeddings(data: OllamaEmbeddingsInput) -> Dict[str, Any]: """Gera representações vetoriais..."""; payload = data.model_dump(exclude_none=True); return await _handle_ollama_request("POST", "/api/embeddings", payload)
-    @mcp.tool(())
+    @mcp.tool()
     async def ollama_list_running_models() -> Dict[str, Any]: """Verifica e lista quais modelos..."""; return await _handle_ollama_request("GET", "/api/ps")
     @mcp.tool()
     async def ollama_get_version() -> Dict[str, Any]: """Retorna a string de versão..."""; return await _handle_ollama_request("GET", "/api/version")

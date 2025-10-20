@@ -14,9 +14,10 @@ spec:
         app: mcp-server
       # --- CORREÇÃO ADICIONADA ---
       # Adicionamos esta anotação 'dummy' para forçar o Kubernetes
-      # a recriar o pod e garantir que ele use o novo comando 'args'.
+      # a recriar o pod. Mude o "v1" para "v2", "v3", etc.
+      # se precisar forçar novamente.
       annotations:
-        gemini/force-restart-v2: "true" # Mude para v3 se precisar forçar de novo
+        gemini/force-restart-v1: "true"
       # --- FIM DA CORREÇÃO ---
     spec:
       containers:
@@ -28,12 +29,8 @@ spec:
               value: "http://ollama.local"
           command: ["/bin/bash", "-c"]
           args:
-            # --- O COMANDO CORRETO E DEFINITIVO ---
-            # 1. Instala as dependências (com server e cli)
-            # 2. Usa 'uvicorn' para rodar 'main:app' (o nome da nossa variável)
-            # 3. Força o modo 'asgi3'
-            # 4. DESABILITA o middleware 'proxy_headers' que estava causando o TypeError
-            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --interface asgi3 --no-proxy-headers"
+            # Este é o comando correto que o pod DEVE executar
+            - "pip install -r /app/requirements.txt && uvicorn main:mcp --host 0.0.0.0 --port 8000 --interface asgi3 --no-proxy-headers"
           ports:
             - containerPort: 8000
           volumeMounts:

@@ -57,7 +57,7 @@ data:
     async def ollama_chat(data: OllamaChatInput) -> Dict[str, Any]: """Gera uma resposta de chat..."""; payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/chat", payload)
     @mcp.tool()
     async def ollama_create_model(data: OllamaCreateInput) -> Dict[str, Any]: """Cria um novo modelo Ollama..."""; payload = data.model_dump(); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/create", payload)
-    @mcp.tool(name="lista modelos", description="Lista todos os modelos LLM disponíveis no Ollama.", tags={"listar", "modelos"}, meta={"version": "1.0", "author": "Andre Pereira"})
+    @mcp.tool()
     async def ollama_list_models() -> Dict[str, Any]: """Lista todos os modelos..."""; return await _handle_ollama_request("GET", "/api/tags")
     @mcp.tool()
     async def ollama_show_model_info(data: OllamaModelInfoInput) -> Dict[str, Any]: """Exibe informações detalhadas..."""; return await _handle_ollama_request("POST", "/api/show", data.model_dump())

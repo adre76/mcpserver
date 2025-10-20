@@ -13,9 +13,9 @@ spec:
       labels:
         app: mcp-server
       # --- FORÇAR REINÍCIO ---
-      # Mude para "v11" se precisar forçar de novo
+      # Mude para "v12" se precisar forçar de novo
       annotations:
-        gemini/force-restart-v10: "true" 
+        gemini/force-restart-v11: "true" 
     spec:
       containers:
         - name: mcp-server
@@ -28,10 +28,10 @@ spec:
           args:
             # --- O COMANDO CORRETO ---
             # 1. Instala as dependências
-            # 2. Usa o runner 'mcp' com o subcomando 'serve'
-            # 3. Especifica o app como 'module:object'
-            - "pip install -r /app/requirements.txt && mcp run main.py --host 0.0.0.0 --port 8000"
+            # 2. Executa o script Python, que iniciará o servidor via mcp.run()
+            - "pip install -r /app/requirements.txt && python main.py"
           ports:
+            # A porta interna ainda é 8000 (definida no mcp.run)
             - containerPort: 8000
           volumeMounts:
             - name: app-code

@@ -19,7 +19,7 @@ data:
     # --- INÍCIO DA CORREÇÃO ---
     from fastapi import FastAPI
     from mcp.server.fastmcp import FastMCP
-    from pantic import BaseModel, Field
+    from pydantic import BaseModel, Field
 
     # 1. Crie o gerenciador MCP
     mcp_manager = FastMCP("Ollama Tools Server")

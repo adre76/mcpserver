@@ -13,9 +13,9 @@ spec:
       labels:
         app: mcp-server
       # --- FORÇAR REINÍCIO ---
-      # Mude para "v8" se precisar forçar de novo
+      # Mude para "v9" se precisar forçar de novo
       annotations:
-        gemini/force-restart-v7: "true"
+        gemini/force-restart-v8: "true" 
     spec:
       containers:
         - name: mcp-server
@@ -26,12 +26,11 @@ spec:
               value: "http://ollama.local"
           command: ["/bin/bash", "-c"]
           args:
-            # --- O COMANDO CORRETO ---
+            # --- O COMANDO CORRIGIDO ---
             # 1. Instala as dependências
-            # 2. Usa 'uvicorn' para rodar 'main:app' (o app FastAPI interno)
-            # 3. Força o modo 'asgi3'
-            # 4. DESABILITA o middleware 'proxy_headers'
-            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --interface asgi3 --no-proxy-headers"
+            # 2. Usa 'uvicorn' para rodar 'main:app'
+            # 3. REMOVE as flags --interface e --no-proxy-headers
+            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
           ports:
             - containerPort: 8000
           volumeMounts:

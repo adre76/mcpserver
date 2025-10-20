@@ -4,48 +4,28 @@ metadata:
   name: mcp-app-code
   namespace: mcp-server
 data:
-  # Instala as dependências - fastmcp provavelmente puxa fastapi/uvicorn
   requirements.txt: |
     fastmcp
     httpx
-    # Pydantic é necessário para nossos schemas
     pydantic
 
-  # Servidor MCP com o conjunto completo de tools do Ollama
   main.py: |
     import os
     import httpx
     from typing import List, Dict, Any, Optional
 
-    # --- INÍCIO DA CORREÇÃO ---
-    # Importação correta conforme a documentação
     from fastmcp import FastMCP
     from pydantic import BaseModel, Field
-
-    # Cria a instância (chamada 'mcp' como no exemplo)
+    
     mcp = FastMCP("Ollama Tools Server")
-    # --- FIM DA CORREÇÃO ---
-
-    # Pega a URL do Ollama da variável de ambiente
+    
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama.local")
-
-    # Cria um cliente HTTP assíncrono para se comunicar com o Ollama
     ollama_client = httpx.AsyncClient(base_url=OLLAMA_BASE_URL, timeout=300.0)
 
     print(f"MCP Server (Ollama Full API) iniciado. Apontando para: {OLLAMA_BASE_URL}")
 
-    # --- Schemas de Input (Pydantic) para as Tools ---
-
-    class OllamaGenerateInput(BaseModel):
-        model: str = Field(description="O nome do modelo a ser usado (ex: 'llama3:latest').")
-        prompt: str = Field(description="O prompt para gerar uma resposta.")
-        format: Optional[str] = Field(None, description="O formato da resposta (ex: 'json').")
-        options: Optional[Dict[str, Any]] = Field(None, description="Parâmetros avançados do modelo (ex: 'temperature').")
-        system: Optional[str] = Field(None, description="A instrução de sistema (system prompt).")
-        template: Optional[str] = Field(None, description="O template de prompt a ser usado (sobrescreve o do modelo).")
-        context: Optional[str] = Field(None, description="O contexto de uma conversa anterior (para manter estado).")
-
-    # ... (Restante das classes Pydantic - OllamaChatInput, etc. - sem alterações) ...
+    # --- Schemas ---
+    class OllamaGenerateInput(BaseModel): model: str = Field(description="O nome do modelo a ser usado (ex: 'llama3:latest')."); prompt: str = Field(description="O prompt para gerar uma resposta."); format: Optional[str] = Field(None, description="O formato da resposta (ex: 'json')."); options: Optional[Dict[str, Any]] = Field(None, description="Parâmetros avançados do modelo (ex: 'temperature')."); system: Optional[str] = Field(None, description="A instrução de sistema (system prompt)."); template: Optional[str] = Field(None, description="O template de prompt a ser usado (sobrescreve o do modelo)."); context: Optional[str] = Field(None, description="O contexto de uma conversa anterior (para manter estado).")
     class OllamaChatInput(BaseModel): model: str = Field(description="O nome do modelo a ser usado (ex: 'llama3:latest')."); messages: List[Dict[str, str]] = Field(description="Lista de mensagens no formato {'role': 'user', 'content': '...'}."); format: Optional[str] = Field(None, description="O formato da resposta (ex: 'json')."); options: Optional[Dict[str, Any]] = Field(None, description="Parâmetros avançados do modelo (ex: 'temperature').")
     class OllamaCreateInput(BaseModel): name: str = Field(description="O nome do novo modelo a ser criado (ex: 'meu-modelo:latest')."); modelfile: str = Field(description="O conteúdo completo do 'Modelfile' como uma string.")
     class OllamaModelInfoInput(BaseModel): name: str = Field(description="O nome do modelo a ser inspecionar.")
@@ -55,13 +35,8 @@ data:
     class OllamaPushInput(BaseModel): name: str = Field(description="O nome do modelo a ser enviado para o registro (ex: 'meu-namespace/meu-modelo')."); insecure: Optional[bool] = Field(None, description="Permitir conexões 'inseguras' (http) com o registro.")
     class OllamaEmbeddingsInput(BaseModel): model: str = Field(description="O nome do modelo de embedding a ser usado."); prompt: str = Field(description="O texto a ser convertido em um vetor (embedding)."); options: Optional[Dict[str, Any]] = Field(None, description="Parâmetros avançados do modelo.")
 
-    # --- Bloco Genérico de Tratamento de Erro ---
-    async def _handle_ollama_request(
-        method: str,
-        path: str,
-        payload: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        # ... (código _handle_ollama_request sem alterações) ...
+    # --- Bloco de Erro ---
+    async def _handle_ollama_request( method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         try:
             if method == "GET": response = await ollama_client.get(path)
             elif method == "POST": response = await ollama_client.post(path, json=payload)
@@ -75,42 +50,33 @@ data:
         except httpx.HTTPStatusError as e: return {"error": f"MCP Tool: Ollama retornou um erro {e.response.status_code}", "details": e.response.text or "Sem detalhes"}
         except Exception as e: return {"error": f"MCP Tool: Erro inesperado ao processar {path}", "details": str(e)}
 
-    # --- Definição das Tools ---
-    # (Usando @mcp.tool)
+    # --- Tools ---
+    @mcp.tool()
+    async def ollama_generate(data: OllamaGenerateInput) -> Dict[str, Any]: """Gera uma conclusão de texto..."""; payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/generate", payload)
+    @mcp.tool()
+    async def ollama_chat(data: OllamaChatInput) -> Dict[str, Any]: """Gera uma resposta de chat..."""; payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/chat", payload)
+    @mcp.tool()
+    async def ollama_create_model(data: OllamaCreateInput) -> Dict[str, Any]: """Cria um novo modelo Ollama..."""; payload = data.model_dump(); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/create", payload)
+    @mcp.tool()
+    async def ollama_list_models() -> Dict[str, Any]: """Lista todos os modelos..."""; return await _handle_ollama_request("GET", "/api/tags")
+    @mcp.tool()
+    async def ollama_show_model_info(data: OllamaModelInfoInput) -> Dict[str, Any]: """Exibe informações detalhadas..."""; return await _handle_ollama_request("POST", "/api/show", data.model_dump())
+    @mcp.tool()
+    async def ollama_copy_model(data: OllamaCopyInput) -> Dict[str, Any]: """Cria uma cópia de um modelo..."""; return await _handle_ollama_request("POST", "/api/copy", data.model_dump())
+    @mcp.tool()
+    async def ollama_delete_model(data: OllamaDeleteInput) -> Dict[str, Any]: """Exclui permanentemente um modelo..."""; return await _handle_ollama_request("DELETE", "/api/delete", data.model_dump())
+    @mcp.tool()
+    async def ollama_pull_model(data: OllamaPullInput) -> Dict[str, Any]: """Baixa um modelo..."""; payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/pull", payload)
+    @mcp.tool()
+    async def ollama_push_model(data: OllamaPushInput) -> Dict[str, Any]: """Envia um modelo local..."""; payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/push", payload)
+    @mcp.tool()
+    async def ollama_generate_embeddings(data: OllamaEmbeddingsInput) -> Dict[str, Any]: """Gera representações vetoriais..."""; payload = data.model_dump(exclude_none=True); return await _handle_ollama_request("POST", "/api/embeddings", payload)
+    @mcp.tool()
+    async def ollama_list_running_models() -> Dict[str, Any]: """Verifica e lista quais modelos..."""; return await _handle_ollama_request("GET", "/api/ps")
+    @mcp.tool()
+    async def ollama_get_version() -> Dict[str, Any]: """Retorna a string de versão..."""; return await _handle_ollama_request("GET", "/api/version")
 
-    @mcp.tool()
-    async def ollama_generate(data: OllamaGenerateInput) -> Dict[str, Any]:
-        """Gera uma conclusão de texto (completion) a partir de um único prompt..."""
-        payload = data.model_dump(exclude_none=True)
-        payload["stream"] = False
-        return await _handle_ollama_request("POST", "/api/generate", payload)
-
-    # ... (Restante das tools @mcp.tool - sem alterações) ...
-    @mcp.tool()
-    async def ollama_chat(data: OllamaChatInput) -> Dict[str, Any]: """Gera uma resposta de chat baseada em um histórico de mensagens..."""; payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/chat", payload)
-    @mcp.tool()
-    async def ollama_create_model(data: OllamaCreateInput) -> Dict[str, Any]: """Cria um novo modelo Ollama customizado a partir do conteúdo de um 'Modelfile'..."""; payload = data.model_dump(); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/create", payload)
-    @mcp.tool()
-    async def ollama_list_models() -> Dict[str, Any]: """Lista todos os modelos de linguagem baixados..."""; return await _handle_ollama_request("GET", "/api/tags")
-    @mcp.tool()
-    async def ollama_show_model_info(data: OllamaModelInfoInput) -> Dict[str, Any]: """Exibe informações detalhadas sobre um modelo específico..."""; return await _handle_ollama_request("POST", "/api/show", data.model_dump())
-    @mcp.tool()
-    async def ollama_copy_model(data: OllamaCopyInput) -> Dict[str, Any]: """Cria uma cópia de um modelo local existente..."""; return await _handle_ollama_request("POST", "/api/copy", data.model_dump())
-    @mcp.tool()
-    async def ollama_delete_model(data: OllamaDeleteInput) -> Dict[str, Any]: """Exclui permanentemente um modelo do servidor Ollama local..."""; return await _handle_ollama_request("DELETE", "/api/delete", data.model_dump())
-    @mcp.tool()
-    async def ollama_pull_model(data: OllamaPullInput) -> Dict[str, Any]: """Baixa um modelo de um registro (como o Ollama Hub)..."""; payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/pull", payload)
-    @mcp.tool()
-    async def ollama_push_model(data: OllamaPushInput) -> Dict[str, Any]: """Envia um modelo local para um registro remoto..."""; payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/push", payload)
-    @mcp.tool()
-    async def ollama_generate_embeddings(data: OllamaEmbeddingsInput) -> Dict[str, Any]: """Gera representações vetoriais (embeddings)..."""; payload = data.model_dump(exclude_none=True); return await _handle_ollama_request("POST", "/api/embeddings", payload)
-    @mcp.tool()
-    async def ollama_list_running_models() -> Dict[str, Any]: """Verifica e lista quais modelos estão atualmente carregados na memória..."""; return await _handle_ollama_request("GET", "/api/ps")
-    @mcp.tool()
-    async def ollama_get_version() -> Dict[str, Any]: """Retorna a string de versão exata do servidor Ollama em execução."""; return await _handle_ollama_request("GET", "/api/version")
-
-
-    # --- Bloco para iniciar o servidor ---
+    # --- Iniciar servidor ---
     if __name__ == "__main__":
         print("Iniciando servidor FastMCP HTTP via mcp.run()...")
         mcp.run(transport="http", host="0.0.0.0", port=8000)

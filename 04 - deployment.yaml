@@ -13,9 +13,9 @@ spec:
       labels:
         app: mcp-server
       # --- FORÇAR REINÍCIO ---
-      # Mude para "v7" se precisar forçar de novo
+      # Mude para "v8" se precisar forçar de novo
       annotations:
-        gemini/force-restart-v6: "true"
+        gemini/force-restart-v7: "true"
     spec:
       containers:
         - name: mcp-server
@@ -26,7 +26,7 @@ spec:
               value: "http://ollama.local"
           command: ["/bin/bash", "-c"]
           args:
-            # --- O COMANDO CORRETO E DEFINITIVO ---
+            # --- O COMANDO CORRETO ---
             # 1. Instala as dependências
             # 2. Usa 'uvicorn' para rodar 'main:app' (o app FastAPI interno)
             # 3. Força o modo 'asgi3'

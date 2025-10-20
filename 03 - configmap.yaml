@@ -16,11 +16,11 @@ data:
     import httpx
     from typing import List, Dict, Any, Optional
 
-    # --- INÍCIO DA CORREÇÃO ---
     from mcp.server.fastmcp import FastMCP
     from pydantic import BaseModel, Field
     
-    # Esta é a definição correta. 'app' é a instância do FastMCP.
+    # --- CORREÇÃO ---
+    # Voltamos a chamar a variável de 'app'
     app = FastMCP("Ollama Tools Server")
     # --- FIM DA CORREÇÃO ---
     

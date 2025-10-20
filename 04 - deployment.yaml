@@ -13,9 +13,9 @@ spec:
       labels:
         app: mcp-server
       # --- FORÇAR REINÍCIO ---
-      # Mude para "v9" se precisar forçar de novo
+      # Mude para "v11" se precisar forçar de novo
       annotations:
-        gemini/force-restart-v8: "true" 
+        gemini/force-restart-v10: "true" 
     spec:
       containers:
         - name: mcp-server
@@ -26,11 +26,11 @@ spec:
               value: "http://ollama.local"
           command: ["/bin/bash", "-c"]
           args:
-            # --- O COMANDO CORRIGIDO ---
+            # --- O COMANDO CORRETO ---
             # 1. Instala as dependências
-            # 2. Usa 'uvicorn' para rodar 'main:app'
-            # 3. REMOVE as flags --interface e --no-proxy-headers
-            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
+            # 2. Usa o runner 'mcp' com o subcomando 'serve'
+            # 3. Especifica o app como 'module:object'
+            - "pip install -r /app/requirements.txt && mcp serve main:app --host 0.0.0.0 --port 8000"
           ports:
             - containerPort: 8000
           volumeMounts:

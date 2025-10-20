@@ -13,8 +13,9 @@ spec:
       labels:
         app: mcp-server
       # --- FORÇAR REINÍCIO ---
+      # Mude para "v13" se precisar forçar de novo
       annotations:
-        gemini/force-restart-v12: "true"
+        gemini/force-restart-v12: "true" 
     spec:
       containers:
         - name: mcp-server
@@ -25,27 +26,19 @@ spec:
               value: "http://ollama.local"
           command: ["/bin/bash", "-c"]
           args:
-            # --- O COMANDO CORRETO ---
+            # --- O COMANDO CORRETO (Baseado na documentação) ---
             # 1. Instala as dependências
-            # 2. Executa o script Python, que iniciará o servidor Uvicorn
+            # 2. Executa o script Python, que iniciará o servidor via mcp.run()
             - "pip install -r /app/requirements.txt && python main.py"
           ports:
+            # A porta interna ainda é 8000 (definida no mcp.run)
             - containerPort: 8000
           volumeMounts:
             # ... (volumeMounts sem alterações) ...
-            - name: app-code
-              mountPath: /app/main.py
-              subPath: main.py
-            - name: app-code
-              mountPath: /app/requirements.txt
-              subPath: requirements.txt
-            - name: data-storage
-              mountPath: /data
+            - name: app-code; mountPath: /app/main.py; subPath: main.py
+            - name: app-code; mountPath: /app/requirements.txt; subPath: requirements.txt
+            - name: data-storage; mountPath: /data
       volumes:
         # ... (volumes sem alterações) ...
-        - name: app-code
-          configMap:
-            name: mcp-app-code
-        - name: data-storage
-          persistentVolumeClaim:
-            claimName: mcp-data-pvc
+        - name: app-code; configMap: { name: mcp-app-code }
+        - name: data-storage; persistentVolumeClaim: { claimName: mcp-data-pvc }

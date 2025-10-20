@@ -30,7 +30,7 @@ spec:
             # 1. Instala as dependências
             # 2. Usa o runner 'mcp' com o subcomando 'serve'
             # 3. Especifica o app como 'module:object'
-            - "pip install -r /app/requirements.txt && mcp run main:app --host 0.0.0.0 --port 8000"
+            - "pip install -r /app/requirements.txt && mcp run main.py"
           ports:
             - containerPort: 8000
           volumeMounts:

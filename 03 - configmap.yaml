@@ -8,9 +8,6 @@ data:
   requirements.txt: |
     mcp[server]
     httpx
-    # Pydantic é instalado como dependência do mcp,
-    # mas é bom ser explícito (opcional)
-    pydantic
 
   # Servidor MCP com o conjunto completo de tools do Ollama
   main.py: |
@@ -20,8 +17,8 @@ data:
 
     # --- INÍCIO DAS CORREÇÕES ---
     
-    # 1. Importar MCP (classe) de 'mcp'
-    from mcp import MCP
+    # 1. Importar MCP (classe) de 'mcp.app'
+    from mcp.app import MCP
     # 2. Importar BaseModel e Field de 'pydantic'
     from pydantic import BaseModel, Field
     
@@ -116,7 +113,6 @@ data:
             return {"error": f"MCP Tool: Erro inesperado ao processar {path}", "details": str(e)}
 
     # --- Definição das Tools ---
-    # (O restante do código que usa @app.tool(...) está correto)
 
     @app.tool(
         name="ollama_generate",

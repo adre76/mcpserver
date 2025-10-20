@@ -24,9 +24,10 @@ spec:
           args:
             # --- COMANDO CORRIGIDO ---
             # 1. Instala as dependências
-            # 2. Usa 'uvicorn' para rodar 'main:app' (o app FastAPI interno)
-            # 3. Força o modo 'asgi3' para evitar o 'TypeError'
-            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --interface asgi3"
+            # 2. Usa 'uvicorn' para rodar 'main:mcp'
+            # 3. Força o modo 'asgi3'
+            # 4. DESABILITA o middleware 'proxy_headers' que está causando o TypeError
+            - "pip install -r /app/requirements.txt && uvicorn main:mcp --host 0.0.0.0 --port 8000 --interface asgi3 --no-proxy-headers"
           ports:
             - containerPort: 8000
           volumeMounts:

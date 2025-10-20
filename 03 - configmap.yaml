@@ -17,13 +17,13 @@ data:
 
     # --- INÍCIO DAS CORREÇÕES ---
     
-    # 1. Importar MCP (classe) de 'mcp.app'
-    from mcp.app import MCP
-    # 2. Importar BaseModel e Field de 'pydantic'
+    # 1. Importar MCPService (classe) de 'mcp.service'
+    from mcp.service import MCPService
+    # 2. Importar BaseModel e Field de 'pydantic' (isto estava correto)
     from pydantic import BaseModel, Field
     
     # 3. Criar a instância da aplicação
-    app = MCP()
+    app = MCPService()
     
     # --- FIM DAS CORREÇÕES ---
 

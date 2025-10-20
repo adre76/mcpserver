@@ -6,7 +6,9 @@ metadata:
 data:
   # Arquivo de dependências do Python
   requirements.txt: |
-    mcp[server]
+    # --- CORREÇÃO ---
+    # Instala tanto os extras do 'server' quanto do 'cli'
+    mcp[server,cli]
     httpx
 
   # Servidor MCP com o conjunto completo de tools do Ollama
@@ -15,14 +17,10 @@ data:
     import httpx
     from typing import List, Dict, Any, Optional
 
-    # --- CORREÇÃO ---
-    # Importa as classes corretas
     from mcp.server.fastmcp import FastMCP
     from pydantic import BaseModel, Field
     
-    # Cria a instância (vamos chamá-la de 'mcp', como na documentação)
     mcp = FastMCP("Ollama Tools Server")
-    # --- FIM DA CORREÇÃO ---
     
     # Pega a URL do Ollama da variável de ambiente
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama.local")
@@ -193,7 +191,7 @@ data:
         payload = data.model_dump(exclude_none=True)
         return await _handle_ollama_request("POST", "/api/embeddings", payload)
 
-    @mcp.tool(
+    @mcmcp.tool(
         name="ollama_list_running_models",
         description="Verifica e lista quais modelos estão atualmente carregados na memória (VRAM/RAM) do servidor Ollama e há quanto tempo estão ativos (equivalente a /api/ps)."
     )

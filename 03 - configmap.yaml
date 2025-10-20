@@ -15,17 +15,10 @@ data:
     import httpx
     from typing import List, Dict, Any, Optional
 
-    # --- INÍCIO DAS CORREÇÕES ---
-    
-    # 1. Importar FastMCP (classe) de 'mcp.server.fastmcp'
     from mcp.server.fastmcp import FastMCP
-    # 2. Importar BaseModel e Field de 'pydantic' (necessário para nossos schemas)
     from pydantic import BaseModel, Field
     
-    # 3. Criar a instância da aplicação
     app = FastMCP("Ollama Tools Server")
-    
-    # --- FIM DAS CORREÇÕES ---
 
     # Pega a URL do Ollama da variável de ambiente
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama.local")
@@ -113,12 +106,10 @@ data:
             return {"error": f"MCP Tool: Erro inesperado ao processar {path}", "details": str(e)}
 
     # --- Definição das Tools ---
-    # (O restante do código está correto)
 
     @app.tool(
         name="ollama_generate",
-        description="Gera uma conclusão de texto (completion) a partir de um único prompt. Ideal para tarefas de geração de texto simples, sem histórico de conversa. Sempre retorna uma resposta JSON única (sem stream).",
-        input_schema=OllamaGenerateInput,
+        description="Gera uma conclusão de texto (completion) a partir de um único prompt. Ideal para tarefas de geração de texto simples, sem histórico de conversa. Sempre retorna uma resposta JSON única (sem stream)."
     )
     async def ollama_generate(data: OllamaGenerateInput) -> Dict[str, Any]:
         payload = data.model_dump(exclude_none=True)
@@ -127,8 +118,7 @@ data:
 
     @app.tool(
         name="ollama_chat",
-        description="Gera uma resposta de chat baseada em um histórico de mensagens. Use para continuar conversas. Sempre retorna uma resposta JSON única (sem stream).",
-        input_schema=OllamaChatInput,
+        description="Gera uma resposta de chat baseada em um histórico de mensagens. Use para continuar conversas. Sempre retorna uma resposta JSON única (sem stream)."
     )
     async def ollama_chat(data: OllamaChatInput) -> Dict[str, Any]:
         payload = data.model_dump(exclude_none=True)
@@ -137,8 +127,7 @@ data:
 
     @app.tool(
         name="ollama_create_model",
-        description="Cria um novo modelo Ollama customizado a partir do conteúdo de um 'Modelfile'. O 'Modelfile' deve ser passado como uma string completa.",
-        input_schema=OllamaCreateInput,
+        description="Cria um novo modelo Ollama customizado a partir do conteúdo de um 'Modelfile'. O 'Modelfile' deve ser passado como uma string completa."
     )
     async def ollama_create_model(data: OllamaCreateInput) -> Dict[str, Any]:
         payload = data.model_dump()
@@ -147,40 +136,35 @@ data:
 
     @app.tool(
         name="ollama_list_models",
-        description="Lista todos os modelos de linguagem que foram baixados e estão disponíveis localmente no servidor Ollama (equivalente a /api/tags).",
-        input_schema=None,
+        description="Lista todos os modelos de linguagem que foram baixados e estão disponíveis localmente no servidor Ollama (equivalente a /api/tags)."
     )
     async def ollama_list_models() -> Dict[str, Any]:
         return await _handle_ollama_request("GET", "/api/tags")
 
     @app.tool(
         name="ollama_show_model_info",
-        description="Exibe informações detalhadas sobre um modelo específico, como seu 'Modelfile' original, parâmetros, e template de sistema.",
-        input_schema=OllamaModelInfoInput,
+        description="Exibe informações detalhadas sobre um modelo específico, como seu 'Modelfile' original, parâmetros, e template de sistema."
     )
     async def ollama_show_model_info(data: OllamaModelInfoInput) -> Dict[str, Any]:
         return await _handle_ollama_request("POST", "/api/show", data.model_dump())
 
     @app.tool(
         name="ollama_copy_model",
-        description="Cria uma cópia de um modelo local existente, dando-lhe um novo nome. Útil para criar 'snapshots' ou testar variações de um modelo.",
-        input_schema=OllamaCopyInput,
+        description="Cria uma cópia de um modelo local existente, dando-lhe um novo nome. Útil para criar 'snapshots' ou testar variações de um modelo."
     )
     async def ollama_copy_model(data: OllamaCopyInput) -> Dict[str, Any]:
         return await _handle_ollama_request("POST", "/api/copy", data.model_dump())
 
     @app.tool(
         name="ollama_delete_model",
-        description="Exclui permanentemente um modelo do servidor Ollama local. Use com cuidado, pois isso libera espaço em disco.",
-        input_schema=OllamaDeleteInput,
+        description="Exclui permanentemente um modelo do servidor Ollama local. Use com cuidado, pois isso libera espaço em disco."
     )
     async def ollama_delete_model(data: OllamaDeleteInput) -> Dict[str, Any]:
         return await _handle_ollama_request("DELETE", "/api/delete", data.model_dump())
 
     @app.tool(
         name="ollama_pull_model",
-        description="Baixa um modelo de um registro (como o Ollama Hub) para o servidor local. Retorna o status JSON quando concluído (sem stream).",
-        input_schema=OllamaPullInput,
+        description="Baixa um modelo de um registro (como o Ollama Hub) para o servidor local. Retorna o status JSON quando concluído (sem stream)."
     )
     async def ollama_pull_model(data: OllamaPullInput) -> Dict[str, Any]:
         payload = data.model_dump(exclude_none=True)
@@ -189,8 +173,7 @@ data:
 
     @app.tool(
         name="ollama_push_model",
-        description="Envia um modelo local para um registro remoto. O modelo deve ter um nome de namespace (ex: 'meu_usuario/meu_modelo'). Retorna o status JSON quando concluído.",
-        input_schema=OllamaPushInput,
+        description="Envia um modelo local para um registro remoto. O modelo deve ter um nome de namespace (ex: 'meu_usuario/meu_modelo'). Retorna o status JSON quando concluído."
     )
     async def ollama_push_model(data: OllamaPushInput) -> Dict[str, Any]:
         payload = data.model_dump(exclude_none=True)
@@ -199,8 +182,7 @@ data:
 
     @app.tool(
         name="ollama_generate_embeddings",
-        description="Gera representações vetoriais (embeddings) para um determinado texto (prompt) usando um modelo específico. Essencial para tarefas de RAG e busca semântica.",
-        input_schema=OllamaEmbeddingsInput,
+        description="Gera representações vetoriais (embeddings) para um determinado texto (prompt) usando um modelo específico. Essencial para tarefas de RAG e busca semântica."
     )
     async def ollama_generate_embeddings(data: OllamaEmbeddingsInput) -> Dict[str, Any]:
         payload = data.model_dump(exclude_none=True)
@@ -208,16 +190,14 @@ data:
 
     @app.tool(
         name="ollama_list_running_models",
-        description="Verifica e lista quais modelos estão atualmente carregados na memória (VRAM/RAM) do servidor Ollama e há quanto tempo estão ativos (equivalente a /api/ps).",
-        input_schema=None,
+        description="Verifica e lista quais modelos estão atualmente carregados na memória (VRAM/RAM) do servidor Ollama e há quanto tempo estão ativos (equivalente a /api/ps)."
     )
     async def ollama_list_running_models() -> Dict[str, Any]:
         return await _handle_ollama_request("GET", "/api/ps")
 
     @app.tool(
         name="ollama_get_version",
-        description="Retorna a string de versão exata do servidor Ollama em execução.",
-        input_schema=None,
+        description="Retorna a string de versão exata do servidor Ollama em execução."
     )
     async def ollama_get_version() -> Dict[str, Any]:
         return await _handle_ollama_request("GET", "/api/version")

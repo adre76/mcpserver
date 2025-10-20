@@ -13,9 +13,9 @@ spec:
       labels:
         app: mcp-server
       # --- FORÇAR REINÍCIO ---
-      # Mude para "v4" se precisar forçar de novo
+      # Mude para "v5" se precisar forçar de novo
       annotations:
-        gemini/force-restart-v3: "true" 
+        gemini/force-restart-v4: "true" 
     spec:
       containers:
         - name: mcp-server
@@ -28,8 +28,9 @@ spec:
           args:
             # --- O COMANDO CORRETO ---
             # 1. Instala as dependências
-            # 2. Usa o runner 'mcp' com o subcomando 'http'
-            - "pip install -r /app/requirements.txt && mcp http main.py --host 0.0.0.0 --port 8000"
+            # 2. Usa 'uvicorn' para rodar 'main:app' (o objeto FastAPI)
+            # 3. Mantemos as flags por segurança
+            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --interface asgi3 --no-proxy-headers"
           ports:
             - containerPort: 8000
           volumeMounts:

@@ -23,9 +23,9 @@ spec:
           command: ["/bin/bash", "-c"]
           args:
             # --- COMANDO CORRIGIDO ---
-            # 1. Instala as dependências
-            # 2. Usa o runner 'mcp' para servir o 'main.py' como 'http'
-            - "pip install -r /app/requirements.txt && mcp run main.py http --host 0.0.0.0 --port 8000"
+            # A ordem foi trocada para:
+            # mcp run <subcomando> <arquivo> [opções]
+            - "pip install -r /app/requirements.txt && mcp run http main.py --host 0.0.0.0 --port 8000"
           ports:
             - containerPort: 8000
           volumeMounts:

@@ -19,7 +19,7 @@ data:
     from pydantic import BaseModel, Field
     
     # Esta é a definição correta.
-    app = FastMCP("Ollama Tools Server").app
+    app = FastMCP("Ollama Tools Server")
     
     # Pega a URL do Ollama da variável de ambiente
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama.local")

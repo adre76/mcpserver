@@ -1,4 +1,3 @@
-# Arquivo: 04-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,11 +22,11 @@ spec:
               value: "http://ollama.local"
           command: ["/bin/bash", "-c"]
           args:
-            # --- O COMANDO CORRETO E DEFINITIVO ---
-            # 1. Instala as dependências (com server e cli)
-            # 2. Usa 'uvicorn' para rodar 'main:mcp' (o nome da nossa variável)
+            # --- COMANDO CORRIGIDO ---
+            # 1. Instala as dependências
+            # 2. Usa 'uvicorn' para rodar 'main:app' (o app FastAPI interno)
             # 3. Força o modo 'asgi3' para evitar o 'TypeError'
-            - "pip install -r /app/requirements.txt && uvicorn main:mcp --host 0.0.0.0 --port 8000 --interface asgi3"
+            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --interface asgi3"
           ports:
             - containerPort: 8000
           volumeMounts:

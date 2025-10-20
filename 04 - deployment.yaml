@@ -12,13 +12,6 @@ spec:
     metadata:
       labels:
         app: mcp-server
-      # --- CORREÇÃO ADICIONADA ---
-      # Adicionamos esta anotação 'dummy' para forçar o Kubernetes
-      # a recriar o pod. Mude o "v1" para "v2", "v3", etc.
-      # se precisar forçar novamente.
-      annotations:
-        gemini/force-restart-v1: "true"
-      # --- FIM DA CORREÇÃO ---
     spec:
       containers:
         - name: mcp-server
@@ -29,8 +22,9 @@ spec:
               value: "http://ollama.local"
           command: ["/bin/bash", "-c"]
           args:
-            # Este é o comando correto que o pod DEVE executar
-            - "pip install -r /app/requirements.txt && uvicorn main:mcp --host 0.0.0.0 --port 8000 --interface asgi3 --no-proxy-headers"
+            # --- COMANDO CORRIGIDO ---
+            # A sintaxe correta é 'mcp run <subcomando> [opções] <arquivo>'
+            - "pip install -r /app/requirements.txt && mcp run http --host 0.0.0.0 --port 8000 main.py"
           ports:
             - containerPort: 8000
           volumeMounts:

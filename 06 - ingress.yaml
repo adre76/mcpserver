@@ -18,7 +18,7 @@ spec:
     - host: "mcpserver.local"
       http:
         paths:
-          - path: /
+          - path: /mcp
             pathType: Prefix
             backend:
               service:

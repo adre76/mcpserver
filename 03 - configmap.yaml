@@ -191,7 +191,7 @@ data:
         payload = data.model_dump(exclude_none=True)
         return await _handle_ollama_request("POST", "/api/embeddings", payload)
 
-    @mcmcp.tool(
+    @mcp.tool(
         name="ollama_list_running_models",
         description="Verifica e lista quais modelos estão atualmente carregados na memória (VRAM/RAM) do servidor Ollama e há quanto tempo estão ativos (equivalente a /api/ps)."
     )

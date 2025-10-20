@@ -6,7 +6,7 @@ metadata:
 data:
   # Arquivo de dependências do Python
   requirements.txt: |
-    mcp-py[server]
+    mcp[server]
     httpx
 
   # Servidor MCP com o conjunto completo de tools do Ollama

@@ -28,8 +28,8 @@ spec:
           args:
             # --- O COMANDO CORRETO ---
             # 1. Instala as dependências
-            # 2. Usa o runner 'mcp' com o subcomando 'server'
-            - "pip install -r /app/requirements.txt && mcp server main.py --host 0.0.0.0 --port 8000"
+            # 2. Usa o runner 'mcp' com o subcomando 'http'
+            - "pip install -r /app/requirements.txt && mcp http main.py --host 0.0.0.0 --port 8000"
           ports:
             - containerPort: 8000
           volumeMounts:

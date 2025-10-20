@@ -17,13 +17,13 @@ data:
 
     # --- INÍCIO DAS CORREÇÕES ---
     
-    # 1. Importar MCPService (classe) de 'mcp.service'
-    from mcp.service import MCPService
-    # 2. Importar BaseModel e Field de 'pydantic' (isto estava correto)
+    # 1. Importar FastMCP (classe) de 'mcp.server.fastmcp'
+    from mcp.server.fastmcp import FastMCP
+    # 2. Importar BaseModel e Field de 'pydantic' (necessário para nossos schemas)
     from pydantic import BaseModel, Field
     
     # 3. Criar a instância da aplicação
-    app = MCPService()
+    app = FastMCP("Ollama Tools Server")
     
     # --- FIM DAS CORREÇÕES ---
 
@@ -113,6 +113,7 @@ data:
             return {"error": f"MCP Tool: Erro inesperado ao processar {path}", "details": str(e)}
 
     # --- Definição das Tools ---
+    # (O restante do código está correto)
 
     @app.tool(
         name="ollama_generate",

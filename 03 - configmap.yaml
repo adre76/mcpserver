@@ -148,4 +148,65 @@ data:
         description="Lista todos os modelos de linguagem que foram baixados e estão disponíveis localmente no servidor Ollama (equivalente a /api/tags)."
     )
     async def ollama_list_models() -> Dict[str, Any]:
-        return await _handle_ollama_request("
+        return await _handle_ollama_request("GET", "/api/tags")
+
+    @mcp_manager.tool(
+        name="ollama_show_model_info",
+        description="Exibe informações detalhadas sobre um modelo específico, como seu 'Modelfile' original, parâmetros, e template de sistema."
+    )
+    async def ollama_show_model_info(data: OllamaModelInfoInput) -> Dict[str, Any]:
+        return await _handle_ollama_request("POST", "/api/show", data.model_dump())
+
+    @mcp_manager.tool(
+        name="ollama_copy_model",
+        description="Cria uma cópia de um modelo local existente, dando-lhe um novo nome. Útil para criar 'snapshots' ou testar variações de um modelo."
+    )
+    async def ollama_copy_model(data: OllamaCopyInput) -> Dict[str, Any]:
+        return await _handle_ollama_request("POST", "/api/copy", data.model_dump())
+
+    @mcp_manager.tool(
+        name="ollama_delete_model",
+        description="Exclui permanentemente um modelo do servidor Ollama local. Use com cuidado, pois isso libera espaço em disco."
+    )
+    async def ollama_delete_model(data: OllamaDeleteInput) -> Dict[str, Any]:
+        return await _handle_ollama_request("DELETE", "/api/delete", data.model_dump())
+
+    @mcp_manager.tool(
+        name="ollama_pull_model",
+        description="Baixa um modelo de um registro (como o Ollama Hub) para o servidor local. Retorna o status JSON quando concluído (sem stream)."
+    )
+    async def ollama_pull_model(data: OllamaPullInput) -> Dict[str, Any]:
+        payload = data.model_dump(exclude_none=True)
+        payload["stream"] = False
+        return await _handle_ollama_request("POST", "/api/pull", payload)
+
+    @mcp_manager.tool(
+        name="ollama_push_model",
+        description="Envia um modelo local para um registro remoto. O modelo deve ter um nome de namespace (ex: 'meu_usuario/meu_modelo'). Retorna o status JSON quando concluído."
+    )
+    async def ollama_push_model(data: OllamaPushInput) -> Dict[str, Any]:
+        payload = data.model_dump(exclude_none=True)
+        payload["stream"] = False
+        return await _handle_ollama_request("POST", "/api/push", payload)
+
+    @mcp_manager.tool(
+        name="ollama_generate_embeddings",
+        description="Gera representações vetoriais (embeddings) para um determinado texto (prompt) usando um modelo específico. Essencial para tarefas de RAG e busca semântica."
+    )
+    async def ollama_generate_embeddings(data: OllamaEmbeddingsInput) -> Dict[str, Any]:
+        payload = data.model_dump(exclude_none=True)
+        return await _handle_ollama_request("POST", "/api/embeddings", payload)
+
+    @mcp_manager.tool(
+        name="ollama_list_running_models",
+        description="Verifica e lista quais modelos estão atualmente carregados na memória (VRAM/RAM) do servidor Ollama e há quanto tempo estão ativos (equivalente a /api/ps)."
+    )
+    async def ollama_list_running_models() -> Dict[str, Any]:
+        return await _handle_ollama_request("GET", "/api/ps")
+
+    @mcp_manager.tool(
+        name="ollama_get_version",
+        description="Retorna a string de versão exata do servidor Ollama em execução."
+    )
+    async def ollama_get_version() -> Dict[str, Any]:
+        return await _handle_ollama_request("GET", "/api/version")

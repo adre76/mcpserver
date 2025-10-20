@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server-deployment
+  namespace: mcp-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-server
+  template:
+    metadata:
+      labels:
+        app: mcp-server
+    spec:
+      containers:
+        - name: mcp-server
+          image: python:3.10-slim
+          workingDir: /app
+          env:
+            # Passa a URL do seu Ollama para dentro do container
+            - name: OLLAMA_BASE_URL
+              value: "http://ollama.local"
+          command: ["/bin/bash", "-c"]
+          args:
+            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            # Monta o 'main.py' do ConfigMap em /app/main.py
+            - name: app-code
+              mountPath: /app/main.py
+              subPath: main.py
+            # Monta o 'requirements.txt' do ConfigMap em /app/requirements.txt
+            - name: app-code
+              mountPath: /app/requirements.txt
+              subPath: requirements.txt
+            # Monta o PVC em /data (para logs ou futuros bancos de dados)
+            - name: data-storage
+              mountPath: /data
+      volumes:
+        # Define o volume "app-code" como vindo do ConfigMap
+        - name: app-code
+          configMap:
+            name: mcp-app-code
+        # Define o volume "data-storage" como vindo do PVC
+        - name: data-storage
+          persistentVolumeClaim:
+            claimName: mcp-data-pvc

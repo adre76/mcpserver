@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-server-service
+  namespace: mcp-server
+spec:
+  type: ClusterIP
+  selector:
+    # Seleciona os pods com a label "app: mcp-server"
+    app: mcp-server
+  ports:
+    - protocol: TCP
+      port: 80 # Porta que o Service expõe
+      targetPort: 8000 # Porta onde o container (uvicorn) está rodando

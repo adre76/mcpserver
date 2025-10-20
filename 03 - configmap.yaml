@@ -18,17 +18,11 @@ data:
     from mcp.server.fastmcp import FastMCP
     from pydantic import BaseModel, Field
     
-    # --- INÍCIO DA CORREÇÃO ---
-    
-    # 1. Crie a instância do GERENCIADOR MCP
-    mcp_manager = FastMCP("Ollama Tools Server")
-    
-    # 2. Exponha o aplicativo web INTERNO (o .fastapi)
-    #    com o nome 'app', que é o que o Uvicorn (main:app) procura.
-    app = mcp_manager.fastapi
-    
+    # --- CORREÇÃO ---
+    # Esta é a definição correta, como na documentação.
+    mcp = FastMCP("Ollama Tools Server")
     # --- FIM DA CORREÇÃO ---
-
+    
     # Pega a URL do Ollama da variável de ambiente
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama.local")
 
@@ -115,9 +109,9 @@ data:
             return {"error": f"MCP Tool: Erro inesperado ao processar {path}", "details": str(e)}
 
     # --- Definição das Tools ---
-    # (Note que agora usamos @mcp_manager.tool)
+    # (Usando @mcp.tool)
 
-    @mcp_manager.tool(
+    @mcp.tool(
         name="ollama_generate",
         description="Gera uma conclusão de texto (completion) a partir de um único prompt. Ideal para tarefas de geração de texto simples, sem histórico de conversa. Sempre retorna uma resposta JSON única (sem stream)."
     )
@@ -126,7 +120,7 @@ data:
         payload["stream"] = False
         return await _handle_ollama_request("POST", "/api/generate", payload)
 
-    @mcp_manager.tool(
+    @mcp.tool(
         name="ollama_chat",
         description="Gera uma resposta de chat baseada em um histórico de mensagens. Use para continuar conversas. Sempre retorna uma resposta JSON única (sem stream)."
     )
@@ -135,7 +129,7 @@ data:
         payload["stream"] = False
         return await _handle_ollama_request("POST", "/api/chat", payload)
 
-    @mcp_manager.tool(
+    @mcp.tool(
         name="ollama_create_model",
         description="Cria um novo modelo Ollama customizado a partir do conteúdo de um 'Modelfile'. O 'Modelfile' deve ser passado como uma string completa."
     )
@@ -144,35 +138,35 @@ data:
         payload["stream"] = False
         return await _handle_ollama_request("POST", "/api/create", payload)
 
-    @mcp_manager.tool(
+    @mcp.tool(
         name="ollama_list_models",
         description="Lista todos os modelos de linguagem que foram baixados e estão disponíveis localmente no servidor Ollama (equivalente a /api/tags)."
     )
     async def ollama_list_models() -> Dict[str, Any]:
         return await _handle_ollama_request("GET", "/api/tags")
 
-    @mcp_manager.tool(
+    @mcp.tool(
         name="ollama_show_model_info",
         description="Exibe informações detalhadas sobre um modelo específico, como seu 'Modelfile' original, parâmetros, e template de sistema."
     )
     async def ollama_show_model_info(data: OllamaModelInfoInput) -> Dict[str, Any]:
         return await _handle_ollama_request("POST", "/api/show", data.model_dump())
 
-    @mcp_manager.tool(
+    @mcp.tool(
         name="ollama_copy_model",
         description="Cria uma cópia de um modelo local existente, dando-lhe um novo nome. Útil para criar 'snapshots' ou testar variações de um modelo."
     )
     async def ollama_copy_model(data: OllamaCopyInput) -> Dict[str, Any]:
         return await _handle_ollama_request("POST", "/api/copy", data.model_dump())
 
-    @mcp_manager.tool(
+    @mcp.tool(
         name="ollama_delete_model",
         description="Exclui permanentemente um modelo do servidor Ollama local. Use com cuidado, pois isso libera espaço em disco."
     )
     async def ollama_delete_model(data: OllamaDeleteInput) -> Dict[str, Any]:
         return await _handle_ollama_request("DELETE", "/api/delete", data.model_dump())
 
-    @mcp_manager.tool(
+    @mcp.tool(
         name="ollama_pull_model",
         description="Baixa um modelo de um registro (como o Ollama Hub) para o servidor local. Retorna o status JSON quando concluído (sem stream)."
     )
@@ -181,7 +175,7 @@ data:
         payload["stream"] = False
         return await _handle_ollama_request("POST", "/api/pull", payload)
 
-    @mcp_manager.tool(
+    @mcp.tool(
         name="ollama_push_model",
         description="Envia um modelo local para um registro remoto. O modelo deve ter um nome de namespace (ex: 'meu_usuario/meu_modelo'). Retorna o status JSON quando concluído."
     )
@@ -190,7 +184,7 @@ data:
         payload["stream"] = False
         return await _handle_ollama_request("POST", "/api/push", payload)
 
-    @mcp_manager.tool(
+    @mcp.tool(
         name="ollama_generate_embeddings",
         description="Gera representações vetoriais (embeddings) para um determinado texto (prompt) usando um modelo específico. Essencial para tarefas de RAG e busca semântica."
     )
@@ -198,14 +192,14 @@ data:
         payload = data.model_dump(exclude_none=True)
         return await _handle_ollama_request("POST", "/api/embeddings", payload)
 
-    @mcp_manager.tool(
+    @mcp.tool(
         name="ollama_list_running_models",
         description="Verifica e lista quais modelos estão atualmente carregados na memória (VRAM/RAM) do servidor Ollama e há quanto tempo estão ativos (equivalente a /api/ps)."
     )
     async def ollama_list_running_models() -> Dict[str, Any]:
         return await _handle_ollama_request("GET", "/api/ps")
 
-    @mcp_manager.tool(
+    @mcp.tool(
         name="ollama_get_version",
         description="Retorna a string de versão exata do servidor Ollama em execução."
     )

@@ -22,11 +22,11 @@ spec:
               value: "http://ollama.local"
           command: ["/bin/bash", "-c"]
           args:
-            # --- COMANDO CORRIGIDO ---
-            # 1. Instala as dependências
-            # 2. Usa 'uvicorn' para rodar 'main:mcp'
+            # --- O COMANDO CORRETO E DEFINITIVO ---
+            # 1. Instala as dependências (com server e cli)
+            # 2. Usa 'uvicorn' para rodar 'main:mcp' (o nome da nossa variável)
             # 3. Força o modo 'asgi3'
-            # 4. DESABILITA o middleware 'proxy_headers' que está causando o TypeError
+            # 4. DESABILITA o middleware 'proxy_headers' que estava causando o TypeError
             - "pip install -r /app/requirements.txt && uvicorn main:mcp --host 0.0.0.0 --port 8000 --interface asgi3 --no-proxy-headers"
           ports:
             - containerPort: 8000

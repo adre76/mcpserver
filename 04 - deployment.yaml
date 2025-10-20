@@ -23,7 +23,10 @@ spec:
               value: "http://ollama.local"
           command: ["/bin/bash", "-c"]
           args:
-            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
+            # --- COMANDO CORRIGIDO ---
+            # Adiciona --interface asgi3 para forçar o Uvicorn
+            # a tratar o app como um aplicativo ASGI 3.0 moderno
+            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --interface asgi3"
           ports:
             - containerPort: 8000
           volumeMounts:

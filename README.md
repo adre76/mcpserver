@@ -1,12 +1,12 @@
-# MCP Server
+# MCP Server - Ollama
 
 ## Visão Geral
 
-O **MCP Server** é uma solução para implantar e gerenciar um servidor de Modelo de Contexto de Protocolo (MCP) em um ambiente Kubernetes. Este projeto fornece todos os arquivos de configuração necessários para configurar um namespace, Persistent Volume Claim (PVC), ConfigMap, Deployment, Service e Ingress, permitindo uma implantação robusta e escalável do servidor MCP.
+O **MCP Server** é uma solução para implantar e gerenciar um servidor de Modelo de Contexto de Protocolo (MCP) para a API do serviço Ollama em um ambiente Kubernetes. Este projeto fornece todos os arquivos de configuração necessários para configurar um namespace, Persistent Volume Claim (PVC), ConfigMap, Deployment, Service e Ingress, permitindo uma implantação robusta e escalável do servidor MCP.
 
 ### Propósito
 
-O objetivo principal deste repositório é simplificar a orquestração do MCP Server, abstraindo a complexidade da infraestrutura subjacente e permitindo que os desenvolvedores se concentrem na lógica da aplicação. Ao utilizar o Kubernetes, o projeto garante alta disponibilidade, escalabilidade e gerenciamento eficiente de recursos.
+O objetivo principal deste repositório é simplificar a orquestração do serviço Ollama, abstraindo a complexidade da infraestrutura subjacente e permitindo que os desenvolvedores se concentrem na lógica da aplicação. Ao utilizar o Kubernetes, o projeto garante alta disponibilidade, escalabilidade e gerenciamento eficiente de recursos.
 
 ## Tecnologias Utilizadas
 

@@ -2,7 +2,7 @@
 
 # Script para deploy automatizado do MCP Server no Kubernetes
 
-NAMESPACE="mcp-server"
+NAMESPACE="fastmcp-server"
 
 # Cores para a saída do terminal
 GREEN='\033[0;32m'

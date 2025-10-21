@@ -51,6 +51,9 @@ data:
         except Exception as e: return {"error": f"MCP Tool: Erro inesperado ao processar {path}", "details": str(e)}
 
     # --- Tools ---
+    @mcp.tool
+    async def ping():
+    return {"pong": True}
     @mcp.tool()
     async def ollama_generate(data: OllamaGenerateInput) -> Dict[str, Any]: """Gera uma conclusão de texto..."""; payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/generate", payload)
     @mcp.tool()

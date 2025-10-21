@@ -13,8 +13,7 @@ spec:
       labels:
         app: mcp-server
       annotations:
-        # Incrementado para forçar reinício
-        gemini/force-restart-v24: "true"
+        gemini/force-restart-v22: "true" # Incrementar para forçar
     spec:
       containers:
         - name: mcp-server
@@ -25,8 +24,10 @@ spec:
               value: "http://ollama.local"
           command: ["/bin/bash", "-c"]
           args:
-            # --- CORREÇÃO: Corrigido o path para /app/requirements.txt ---
-            - "pip install -r /app/requirements.txt && python main.py"
+            # --- O COMANDO CORRETO (ASGI Approach) ---
+            # 1. Instala as dependências
+            # 2. Usa 'uvicorn' para rodar 'main:app' (o objeto ASGI criado por http_app())
+            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
           ports:
             - containerPort: 8000
           volumeMounts:

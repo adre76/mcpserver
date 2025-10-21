@@ -21,12 +21,13 @@ data:
 
     print(f"MCP Server (Ollama Full API) iniciado. Apontando para: {OLLAMA_BASE_URL}")
 
-    # Schema Pydantic para cada endpoint
+    # Schemas Pydantic para inputs dos endpoints (exemplos essenciais)
+
     class OllamaGenerateInput(BaseModel):
-        model: str = Field(description="Nome do modelo (ex: 'llama3:latest')")
-        prompt: str = Field(description="Prompt para gerar texto")
+        model: str = Field(description="Nome do modelo (ex:'llama3:latest')")
+        prompt: str = Field(description="Prompt para a geração")
         suffix: Optional[str] = None
-        images: Optional[List[str]] = None  # base64 encoded images
+        images: Optional[List[str]] = None
         format: Optional[str] = None
         options: Optional[Dict[str, Any]] = None
         system: Optional[str] = None
@@ -37,8 +38,8 @@ data:
         context: Optional[Any] = None
 
     class OllamaChatInput(BaseModel):
-        model: str = Field(description="Nome do modelo (ex: 'llama3:latest')")
-        messages: List[Dict[str, str]] = Field(description="Lista de mensagens com papéis")
+        model: str = Field(description="Nome do modelo")
+        messages: List[Dict[str, str]] = Field(description="Lista de mensagens com roles como 'user', 'assistant'")
         tools: Optional[List[Dict[str, Any]]] = None
         format: Optional[Any] = None
         options: Optional[Dict[str, Any]] = None
@@ -46,18 +47,18 @@ data:
         keep_alive: Optional[str] = None
 
     class OllamaCreateInput(BaseModel):
-        name: str = Field(description="Nome para novo modelo")
+        name: str = Field(description="Nome do novo modelo")
         modelfile: str = Field(description="Conteúdo do Modelfile")
 
     class OllamaModelInfoInput(BaseModel):
         name: str = Field(description="Nome do modelo")
 
     class OllamaCopyInput(BaseModel):
-        source: str = Field(description="Nome do modelo origem")
+        source: str = Field(description="Nome do modelo fonte")
         destination: str = Field(description="Nome para a cópia")
 
     class OllamaDeleteInput(BaseModel):
-        name: str = Field(description="Nome do modelo a deletar")
+        name: str = Field(description="Nome do modelo a ser deletado")
 
     class OllamaPullInput(BaseModel):
         name: str = Field(description="Nome do modelo para puxar")
@@ -68,11 +69,12 @@ data:
         insecure: Optional[bool] = False
 
     class OllamaEmbeddingsInput(BaseModel):
-        model: str = Field(description="Nome do modelo de embedding")
-        prompt: str = Field(description="Texto para embedding")
+        model: str = Field(description="Nome do modelo embedding")
+        prompt: str = Field(description="Texto para vetorização")
         options: Optional[Dict[str, Any]] = None
 
-    # Classe que implementa as ferramentas MCP ligadas aos endpoints Ollama
+    # Classe com métodos MCP para todos os endpoints
+
     class OllamaTools:
         async def _handle_ollama_request(self, method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
             if method == "GET":
@@ -134,22 +136,25 @@ data:
 
     tools = OllamaTools()
 
-    print("Iniciando registro dos tools MCP...")
-    mcp.tool(tools.ping)
-    mcp.tool(tools.generate)
-    mcp.tool(tools.chat)
-    mcp.tool(tools.create_model)
-    mcp.tool(tools.list_models)
-    mcp.tool(tools.show_model_info)
-    mcp.tool(tools.copy_model)
-    mcp.tool(tools.delete_model)
-    mcp.tool(tools.pull_model)
-    mcp.tool(tools.push_model)
-    mcp.tool(tools.generate_embeddings)
-    mcp.tool(tools.list_running_models)
-    mcp.tool(tools.version)
-    print("Registro dos tools MCP finalizado")
+    def run_server():
+        print("Iniciando registro dos tools MCP...")
+        mcp.tool(tools.ping)
+        mcp.tool(tools.generate)
+        mcp.tool(tools.chat)
+        mcp.tool(tools.create_model)
+        mcp.tool(tools.list_models)
+        mcp.tool(tools.show_model_info)
+        mcp.tool(tools.copy_model)
+        mcp.tool(tools.delete_model)
+        mcp.tool(tools.pull_model)
+        mcp.tool(tools.push_model)
+        mcp.tool(tools.generate_embeddings)
+        mcp.tool(tools.list_running_models)
+        mcp.tool(tools.version)
+        print("Registro dos tools MCP finalizado")
 
-    if __name__ == "__main__":
         print("Iniciando servidor FastMCP HTTP via mcp.run()...")
         mcp.run(transport="http", host="0.0.0.0", port=8000)
+
+    if __name__ == "__main__":
+        run_server()

@@ -13,9 +13,9 @@ spec:
       labels:
         app: mcp-server
       # --- FORÇAR REINÍCIO ---
-      # Mude para v18 se precisar forçar de novo
+      # Mude para v19 se precisar forçar de novo
       annotations:
-        gemini/force-restart-v17: "true"
+        gemini/force-restart-v18: "true"
     spec:
       containers:
         - name: mcp-server
@@ -26,10 +26,11 @@ spec:
               value: "http://ollama.local"
           command: ["/bin/bash", "-c"]
           args:
-            # --- O COMANDO CORRETO (Baseado na documentação) ---
+            # --- O COMANDO CORRETO ---
             # 1. Instala as dependências
-            # 2. Executa o script Python, que iniciará o servidor via app.run()
-            - "pip install -r /app/requirements.txt && python main.py"
+            # 2. Usa 'uvicorn' para rodar 'main:app' (o objeto ASGI criado por http_app())
+            # 3. Removemos as flags --interface e --no-proxy-headers
+            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
           ports:
             - containerPort: 8000
           volumeMounts:

@@ -1,14 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: mcp-server-service
-  namespace: mcp-server
+  name: fastmcp-service
+  namespace: fastmcp-server
 spec:
   type: ClusterIP
   selector:
-    # Seleciona os pods com a label "app: mcp-server"
-    app: mcp-server
+    app: fastmcp
   ports:
     - protocol: TCP
-      port: 80 # Porta que o Service expõe
-      targetPort: 8000 # Porta onde o container (uvicorn) está rodando
+      port: 80
+      targetPort: 8080

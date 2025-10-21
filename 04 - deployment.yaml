@@ -1,48 +1,38 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mcp-server-deployment
-  namespace: mcp-server
+  name: fastmcp-deployment
+  namespace: fastmcp-server
+  labels:
+    app: fastmcp
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mcp-server
+      app: fastmcp
   template:
     metadata:
       labels:
-        app: mcp-server
-      annotations:
-        gemini/force-restart-v24: "true" # Incrementar para forçar
+        app: fastmcp
     spec:
       containers:
-        - name: mcp-server
-          image: python:3.10-slim
-          workingDir: /app
-          env:
-            - name: OLLAMA_BASE_URL
-              value: "http://ollama.local"
-          command: ["/bin/bash", "-c"]
+        - name: fastmcp
+          image: lionelmartis/fastmcp:latest
+          # Define o caminho para o ficheiro de configuração
           args:
-            # --- O COMANDO CORRETO (ASGI Approach) ---
-            # 1. Instala as dependências
-            # 2. Usa 'uvicorn' para rodar 'main:app' (o objeto ASGI criado por http_app())
-            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
+            - "--config=/app/config.yaml"
           ports:
-            - containerPort: 8000
+            - containerPort: 8080
           volumeMounts:
-            - name: app-code
-              mountPath: /app/main.py
-              subPath: main.py
-            - name: app-code
-              mountPath: /app/requirements.txt
-              subPath: requirements.txt
-            - name: data-storage
-              mountPath: /data
+            - name: config-volume
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+            - name: data-volume
+              mountPath: /app/data
       volumes:
-        - name: app-code
+        - name: config-volume
           configMap:
-            name: mcp-app-code
-        - name: data-storage
+            name: fastmcp-config
+        - name: data-volume
           persistentVolumeClaim:
-            claimName: mcp-data-pvc
+            claimName: fastmcp-data-pvc

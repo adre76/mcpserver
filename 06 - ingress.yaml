@@ -1,24 +1,30 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: mcp-server-ingress
-  namespace: mcp-server
+  name: fastmcp-ingress
+  namespace: fastmcp-server
   annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # Define a classe do Ingress para Nginx
+    kubernetes.io/ingress.class: "nginx"
+
+    # --- Timeouts para LLMs ---
+    # Aumenta o tempo de espera pela resposta do backend (Ollama)
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    # Aumenta o tempo para enviar pedidos grandes
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+
+    # --- Tamanho do Pedido para LLMs ---
+    # Permite prompts/contextos maiores (ex: 50MB)
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
 spec:
   rules:
-    - host: "mcpserver.local"
+    - host: "mpcserver.local"
       http:
         paths:
-          # --- CORREÇÃO: Apontar para a raiz ---
-          - path: /mcp
-            pathType: Prefix # Captura /, /tools, /invoke, etc.
+          - path: /
+            pathType: Prefix
             backend:
               service:
-                name: mcp-server-service
+                name: fastmcp-service
                 port:
                   number: 80

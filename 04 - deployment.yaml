@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: fastmcp
-          image: lionelmartis/fastmcp:latest
+          image: ghcr.io/lionel-martis/fastmcp:latest
           # Define o caminho para o ficheiro de configuração
           args:
             - "--config=/app/config.yaml"

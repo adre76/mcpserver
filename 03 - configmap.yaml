@@ -24,11 +24,13 @@ data:
     # Configuração do cliente Ollama
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama.local")
     try:
+        # Criar o cliente uma vez para reutilização
         ollama_client = httpx.AsyncClient(base_url=OLLAMA_BASE_URL, timeout=300.0)
         print(f"MCP Server (Ollama Full API) iniciado. Apontando para: {OLLAMA_BASE_URL}")
     except Exception as e:
         print(f"ERRO ao criar cliente HTTP para Ollama: {e}")
-        # sys.exit("Falha ao inicializar cliente Ollama") # Consider removing exit
+        # Consider removing sys.exit for resilience
+        sys.exit("Falha ao inicializar cliente Ollama")
 
     # --- Schemas ---
     class OllamaGenerateInput(BaseModel): model: str = Field(description="Nome do modelo (ex:'llama3:latest')"); prompt: str = Field(description="Prompt para a geração"); images: Optional[List[str]] = None; format: Optional[str] = None; options: Optional[Dict[str, Any]] = None; system: Optional[str] = None; template: Optional[str] = None; stream: Optional[bool] = False; raw: Optional[bool] = False; keep_alive: Optional[str] = None; context: Optional[Any] = None
@@ -43,6 +45,8 @@ data:
 
     # --- Bloco de Erro ---
     async def _handle_ollama_request( method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        # Usar o cliente global ollama_client
+        global ollama_client
         try:
             print(f"-> Chamando Ollama: {method} {path} Payload: {payload is not None}")
             if method == "GET": response = await ollama_client.get(path)

@@ -13,7 +13,7 @@ spec:
       labels:
         app: mcp-server
       annotations:
-        gemini/force-restart-v22: "true" # Incrementar para forçar
+        gemini/force-restart-v23: "true" # Incrementar para forçar
     spec:
       containers:
         - name: mcp-server

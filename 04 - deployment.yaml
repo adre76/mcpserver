@@ -13,9 +13,9 @@ spec:
       labels:
         app: mcp-server
       # --- FORÇAR REINÍCIO ---
-      # Mude para v15 se precisar forçar de novo
+      # Mude para v16 se precisar forçar de novo
       annotations:
-        gemini/force-restart-v14: "true"
+        gemini/force-restart-v15: "true"
     spec:
       containers:
         - name: mcp-server
@@ -26,9 +26,7 @@ spec:
               value: "http://ollama.local"
           command: ["/bin/bash", "-c"]
           args:
-            # --- O COMANDO CORRETO (Baseado na documentação) ---
-            # 1. Instala as dependências
-            # 2. Executa o script Python, que iniciará o servidor via mcp.run()
+            # --- Comando Correto ---
             - "pip install -r /app/requirements.txt && python main.py"
           ports:
             - containerPort: 8000

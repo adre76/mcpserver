@@ -13,29 +13,6 @@ spec:
       labels:
         app: mcp-server
       # --- FORÇAR REINÍCIO ---
-      # Mude para "v17" se precisar forçar de novo
-      annotations:
-        gemini/force-restart-v16: "true"
-    spec:
-      containers:
-        - name: mcp-server
-          image: python:3.10-slim
-          workingDir: /app
-          env:apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mcp-server-deployment
-  namespace: mcp-server
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: mcp-server
-  template:
-    metadata:
-      labels:
-        app: mcp-server
-      # --- FORÇAR REINÍCIO ---
       # Mude para v18 se precisar forçar de novo
       annotations:
         gemini/force-restart-v17: "true"
@@ -53,33 +30,6 @@ spec:
             # 1. Instala as dependências
             # 2. Executa o script Python, que iniciará o servidor via app.run()
             - "pip install -r /app/requirements.txt && python main.py"
-          ports:
-            - containerPort: 8000
-          volumeMounts:
-            - name: app-code
-              mountPath: /app/main.py
-              subPath: main.py
-            - name: app-code
-              mountPath: /app/requirements.txt
-              subPath: requirements.txt
-            - name: data-storage
-              mountPath: /data
-      volumes:
-        - name: app-code
-          configMap:
-            name: mcp-app-code
-        - name: data-storage
-          persistentVolumeClaim:
-            claimName: mcp-data-pvc
-            - name: OLLAMA_BASE_URL
-              value: "http://ollama.local"
-          command: ["/bin/bash", "-c"]
-          args:
-            # --- O COMANDO CORRETO ---
-            # 1. Instala as dependências
-            # 2. Usa 'uvicorn' para rodar 'main:app' (a instância FastMCP)
-            # 3. Força o modo 'asgi3' E desabilita 'proxy_headers' para evitar o TypeError
-            - "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --interface asgi3 --no-proxy-headers"
           ports:
             - containerPort: 8000
           volumeMounts:

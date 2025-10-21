@@ -52,7 +52,7 @@ wait_for_resource "namespace" "$NAMESPACE" "" "kubectl get namespace $NAMESPACE"
 echo -e "\n${GREEN}=== 3. Aplicando ConfigMap ===${NC}"
 echo "Aplicando '03 - configmap.yaml'..."
 kubectl apply -f "03 - configmap.yaml" -n $NAMESPACE
-wait_for_resource "configmap" "mcp-app-code" "$NAMESPACE" "kubectl get configmap mcp-app-code -n $NAMESPACE"
+wait_for_resource "configmap" "fastmcp-config" "$NAMESPACE" "kubectl get configmap fastmcp-config -n $NAMESPACE"
 
 # 4. Aplicar Persistent Volume Claim (PVC)
 echo -e "\n${GREEN}=== 4. Aplicando Persistent Volume Claim (PVC) ===${NC}"
@@ -65,24 +65,24 @@ kubectl apply -f "02 - pvc.yaml" -n $NAMESPACE
 echo -e "\n${GREEN}=== 5. Aplicando Deployment ===${NC}"
 echo "Aplicando '04 - deployment.yaml'..."
 kubectl apply -f "04 - deployment.yaml" -n $NAMESPACE
-wait_for_resource "deployment" "mcp-server-deployment" "$NAMESPACE" "kubectl rollout status deployment/mcp-server-deployment -n $NAMESPACE --timeout=0s"
+wait_for_resource "deployment" "fastmcp-deployment" "$NAMESPACE" "kubectl rollout status deployment/fastmcp-deployment -n $NAMESPACE --timeout=0s"
 
 # 6. Verificando Persistent Volume Claim (PVC)
 echo -e "\n${GREEN}=== 6. Verificando Persistent Volume Claim (PVC) ===${NC}"
 # Agora que o Deployment está ativo, o PVC deve estar 'Bound'
-wait_for_resource "pvc" "mcp-data-pvc" "$NAMESPACE" "kubectl get pvc mcp-data-pvc -n $NAMESPACE -o jsonpath='{.status.phase}' | grep -q 'Bound'"
+wait_for_resource "pvc" "fastmcp-data-pvc" "$NAMESPACE" "kubectl get pvc fastmcp-data-pvc -n $NAMESPACE -o jsonpath='{.status.phase}' | grep -q 'Bound'"
 
 # 7. Aplicar Service
 echo -e "\n${GREEN}=== 7. Aplicando Service ===${NC}"
 echo "Aplicando '05 - service.yaml'..."
 kubectl apply -f "05 - service.yaml" -n $NAMESPACE
-wait_for_resource "service" "mcp-server-service" "$NAMESPACE" "kubectl get service mcp-server-service -n $NAMESPACE"
+wait_for_resource "service" "fastmcp-service" "$NAMESPACE" "kubectl get service fastmcp-service -n $NAMESPACE"
 
 # 8. Aplicar Ingress
 echo -e "\n${GREEN}=== 8. Aplicando Ingress ===${NC}"
 echo "Aplicando '06 - ingress.yaml'..."
 kubectl apply -f "06 - ingress.yaml" -n $NAMESPACE
-wait_for_resource "ingress" "mcp-server-ingress" "$NAMESPACE" "kubectl get ingress mcp-server-ingress -n $NAMESPACE"
+wait_for_resource "ingress" "fastmcp-ingress" "$NAMESPACE" "kubectl get ingress fastmcp-ingress -n $NAMESPACE"
 
 echo -e "\n${GREEN}Deploy do MCP Server concluído com sucesso no namespace \'$NAMESPACE\'.${NC}"
 echo "Verifique o status dos recursos com: kubectl get all -n $NAMESPACE"

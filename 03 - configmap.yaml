@@ -58,7 +58,7 @@ data:
     @mcp.tool()
     async def ollama_create_model(data: OllamaCreateInput) -> Dict[str, Any]: """Cria um novo modelo Ollama..."""; payload = data.model_dump(); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/create", payload)
     @mcp.tool()
-    async def ollama_list_models(http_method="POST") -> Dict[str, Any]: """Lista todos os modelos..."""; return await _handle_ollama_request("GET", "/api/tags")
+    async def ollamalistmodels() -> Dict[str, Any]: """Lista todos os modelos..."""; return await _handle_ollama_request("GET", "/api/tags")
     @mcp.tool()
     async def ollama_show_model_info(data: OllamaModelInfoInput) -> Dict[str, Any]: """Exibe informações detalhadas..."""; return await _handle_ollama_request("POST", "/api/show", data.model_dump())
     @mcp.tool()

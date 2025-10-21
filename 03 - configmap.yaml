@@ -21,7 +21,7 @@ data:
 
     # Esta é a definição correta para uvicorn main:app
     app = FastMCP(name="Ollama Tools Server")
-    
+
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama.local")
     try:
         ollama_client = httpx.AsyncClient(base_url=OLLAMA_BASE_URL, timeout=300.0)
@@ -63,32 +63,111 @@ data:
         except Exception as e: print(f"<- ERRO: Erro inesperado ao processar {path}: {e}"); return {"error": f"MCP Tool: Erro inesperado ao processar {path}", "details": str(e)}
 
     # --- Tools ---
-    print("-> Registrando tool: ping"); @app.tool()
-    async def ping() -> Dict[str, Any]: """Verifica se o servidor MCP está online."""; print("Executando tool: ping"); return {"pong": True}
-    print("-> Registrando tool: ollama_generate"); @app.tool()
-    async def ollama_generate(data: OllamaGenerateInput) -> Dict[str, Any]: """Gera texto a partir de um prompt..."""; print(f"Executando tool: ollama_generate (Modelo: {data.model})"); payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/generate", payload)
-    print("-> Registrando tool: ollama_chat"); @app.tool()
-    async def ollama_chat(data: OllamaChatInput) -> Dict[str, Any]: """Continua uma conversa..."""; print(f"Executando tool: ollama_chat (Modelo: {data.model})"); payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/chat", payload)
-    print("-> Registrando tool: ollama_create_model"); @app.tool()
-    async def ollama_create_model(data: OllamaCreateInput) -> Dict[str, Any]: """Cria um modelo Ollama..."""; print(f"Executando tool: ollama_create_model (Nome: {data.name})"); payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/create", payload)
-    print("-> Registrando tool: ollama_list_models"); @app.tool()
-    async def ollama_list_models() -> Dict[str, Any]: """Lista os modelos Ollama..."""; print("Executando tool: ollama_list_models"); return await _handle_ollama_request("GET", "/api/tags")
-    print("-> Registrando tool: ollama_show_model_info"); @app.tool()
-    async def ollama_show_model_info(data: OllamaModelInfoInput) -> Dict[str, Any]: """Mostra informações detalhadas..."""; print(f"Executando tool: ollama_show_model_info (Modelo: {data.name})"); return await _handle_ollama_request("POST", "/api/show", data.model_dump())
-    print("-> Registrando tool: ollama_copy_model"); @app.tool()
-    async def ollama_copy_model(data: OllamaCopyInput) -> Dict[str, Any]: """Copia um modelo Ollama..."""; print(f"Executando tool: ollama_copy_model (Origem: {data.source}, Destino: {data.destination})"); return await _handle_ollama_request("POST", "/api/copy", data.model_dump())
-    print("-> Registrando tool: ollama_delete_model"); @app.tool()
-    async def ollama_delete_model(data: OllamaDeleteInput) -> Dict[str, Any]: """Deleta um modelo Ollama..."""; print(f"Executando tool: ollama_delete_model (Modelo: {data.name})"); return await _handle_ollama_request("DELETE", "/api/delete", data.model_dump())
-    print("-> Registrando tool: ollama_pull_model"); @app.tool()
-    async def ollama_pull_model(data: OllamaPullInput) -> Dict[str, Any]: """Baixa (pull) um modelo Ollama..."""; print(f"Executando tool: ollama_pull_model (Modelo: {data.name})"); payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/pull", payload)
-    print("-> Registrando tool: ollama_push_model"); @app.tool()
-    async def ollama_push_model(data: OllamaPushInput) -> Dict[str, Any]: """Envia (push) um modelo Ollama..."""; print(f"Executando tool: ollama_push_model (Modelo: {data.name})"); payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/push", payload)
-    print("-> Registrando tool: ollama_generate_embeddings"); @app.tool()
-    async def ollama_generate_embeddings(data: OllamaEmbeddingsInput) -> Dict[str, Any]: """Gera embeddings..."""; print(f"Executando tool: ollama_generate_embeddings (Modelo: {data.model})"); payload = data.model_dump(exclude_none=True); return await _handle_ollama_request("POST", "/api/embeddings", payload)
-    print("-> Registrando tool: ollama_list_running_models"); @app.tool()
-    async def ollama_list_running_models() -> Dict[str, Any]: """Lista os modelos Ollama carregados..."""; print("Executando tool: ollama_list_running_models"); return await _handle_ollama_request("GET", "/api/ps")
-    print("-> Registrando tool: ollama_version"); @app.tool()
-    async def ollama_version() -> Dict[str, Any]: """Obtém a versão do Ollama..."""; print("Executando tool: ollama_version"); return await _handle_ollama_request("GET", "/api/version")
+
+    # --- CORREÇÃO: Mover print para linha ANTERIOR ao decorator ---
+    print("-> Registrando tool: ping")
+    @app.tool()
+    async def ping() -> Dict[str, Any]:
+        """Verifica se o servidor MCP está online."""
+        print("Executando tool: ping")
+        return {"pong": True}
+
+    print("-> Registrando tool: ollama_generate")
+    @app.tool()
+    async def ollama_generate(data: OllamaGenerateInput) -> Dict[str, Any]:
+        """Gera texto a partir de um prompt..."""
+        print(f"Executando tool: ollama_generate (Modelo: {data.model})")
+        payload = data.model_dump(exclude_none=True)
+        payload["stream"] = False
+        return await _handle_ollama_request("POST", "/api/generate", payload)
+
+    print("-> Registrando tool: ollama_chat")
+    @app.tool()
+    async def ollama_chat(data: OllamaChatInput) -> Dict[str, Any]:
+        """Continua uma conversa..."""
+        print(f"Executando tool: ollama_chat (Modelo: {data.model})")
+        payload = data.model_dump(exclude_none=True)
+        payload["stream"] = False
+        return await _handle_ollama_request("POST", "/api/chat", payload)
+
+    print("-> Registrando tool: ollama_create_model")
+    @app.tool()
+    async def ollama_create_model(data: OllamaCreateInput) -> Dict[str, Any]:
+        """Cria um modelo Ollama..."""
+        print(f"Executando tool: ollama_create_model (Nome: {data.name})")
+        payload = data.model_dump(exclude_none=True)
+        payload["stream"] = False
+        return await _handle_ollama_request("POST", "/api/create", payload)
+
+    print("-> Registrando tool: ollama_list_models")
+    @app.tool()
+    async def ollama_list_models() -> Dict[str, Any]:
+        """Lista os modelos Ollama..."""
+        print("Executando tool: ollama_list_models")
+        return await _handle_ollama_request("GET", "/api/tags")
+
+    print("-> Registrando tool: ollama_show_model_info")
+    @app.tool()
+    async def ollama_show_model_info(data: OllamaModelInfoInput) -> Dict[str, Any]:
+        """Mostra informações detalhadas..."""
+        print(f"Executando tool: ollama_show_model_info (Modelo: {data.name})")
+        return await _handle_ollama_request("POST", "/api/show", data.model_dump())
+
+    print("-> Registrando tool: ollama_copy_model")
+    @app.tool()
+    async def ollama_copy_model(data: OllamaCopyInput) -> Dict[str, Any]:
+        """Copia um modelo Ollama..."""
+        print(f"Executando tool: ollama_copy_model (Origem: {data.source}, Destino: {data.destination})")
+        return await _handle_ollama_request("POST", "/api/copy", data.model_dump())
+
+    print("-> Registrando tool: ollama_delete_model")
+    @app.tool()
+    async def ollama_delete_model(data: OllamaDeleteInput) -> Dict[str, Any]:
+        """Deleta um modelo Ollama..."""
+        print(f"Executando tool: ollama_delete_model (Modelo: {data.name})")
+        return await _handle_ollama_request("DELETE", "/api/delete", data.model_dump())
+
+    print("-> Registrando tool: ollama_pull_model")
+    @app.tool()
+    async def ollama_pull_model(data: OllamaPullInput) -> Dict[str, Any]:
+        """Baixa (pull) um modelo Ollama..."""
+        print(f"Executando tool: ollama_pull_model (Modelo: {data.name})")
+        payload = data.model_dump(exclude_none=True)
+        payload["stream"] = False
+        return await _handle_ollama_request("POST", "/api/pull", payload)
+
+    print("-> Registrando tool: ollama_push_model")
+    @app.tool()
+    async def ollama_push_model(data: OllamaPushInput) -> Dict[str, Any]:
+        """Envia (push) um modelo Ollama..."""
+        print(f"Executando tool: ollama_push_model (Modelo: {data.name})")
+        payload = data.model_dump(exclude_none=True)
+        payload["stream"] = False
+        return await _handle_ollama_request("POST", "/api/push", payload)
+
+    print("-> Registrando tool: ollama_generate_embeddings")
+    @app.tool()
+    async def ollama_generate_embeddings(data: OllamaEmbeddingsInput) -> Dict[str, Any]:
+        """Gera embeddings..."""
+        print(f"Executando tool: ollama_generate_embeddings (Modelo: {data.model})")
+        payload = data.model_dump(exclude_none=True)
+        return await _handle_ollama_request("POST", "/api/embeddings", payload)
+
+    print("-> Registrando tool: ollama_list_running_models")
+    @app.tool()
+    async def ollama_list_running_models() -> Dict[str, Any]:
+        """Lista os modelos Ollama carregados..."""
+        print("Executando tool: ollama_list_running_models")
+        return await _handle_ollama_request("GET", "/api/ps")
+
+    print("-> Registrando tool: ollama_version")
+    @app.tool()
+    async def ollama_version() -> Dict[str, Any]:
+        """Obtém a versão do Ollama..."""
+        print("Executando tool: ollama_version")
+        return await _handle_ollama_request("GET", "/api/version")
+
     print("-> Registro de todas as tools concluído.")
 
     # Removido o if __name__ == "__main__": mcp.run(...)
+    # O servidor será iniciado pelo comando no deployment.yaml

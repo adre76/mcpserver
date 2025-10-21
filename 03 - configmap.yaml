@@ -152,4 +152,4 @@ data:
 
     if __name__ == "__main__":
         print("Iniciando servidor FastMCP HTTP via mcp.run()...")
-        mcp.run(transport="http", host="0.0.0.0", port=8000, path="/mcp")
+        mcp.run(transport="http", host="0.0.0.0", port=8000)

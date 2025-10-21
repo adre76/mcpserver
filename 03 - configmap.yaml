@@ -5,7 +5,7 @@ metadata:
   namespace: mcp-server
 data:
   requirements.txt: |
-    fastmcp
+    fastmcp # Puxa fastapi, uvicorn, etc. como dependências
     httpx
     pydantic
 
@@ -13,12 +13,19 @@ data:
     import os
     import httpx
     from typing import List, Dict, Any, Optional
+    # Importação correta conforme a documentação
     from fastmcp import FastMCP
     from pydantic import BaseModel, Field
     import sys
 
-    # Cria a instância principal do FastMCP
-    app = FastMCP(name="Ollama Tools Server")
+    # --- INÍCIO DA CORREÇÃO ---
+    # 1. Cria a instância principal do FastMCP
+    mcp_manager = FastMCP(name="Ollama Tools Server")
+
+    # (Funções das Tools são definidas abaixo, usando @mcp_manager.tool())
+
+    # --- FIM DA CORREÇÃO ---
+
 
     # Configuração do cliente Ollama
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama.local")
@@ -27,7 +34,7 @@ data:
         print(f"MCP Server (Ollama Full API) iniciado. Apontando para: {OLLAMA_BASE_URL}")
     except Exception as e:
         print(f"ERRO ao criar cliente HTTP para Ollama: {e}")
-        sys.exit("Falha ao inicializar cliente Ollama")
+        # sys.exit("Falha ao inicializar cliente Ollama") # Consider removing exit
 
     # --- Schemas ---
     class OllamaGenerateInput(BaseModel): model: str = Field(description="Nome do modelo (ex:'llama3:latest')"); prompt: str = Field(description="Prompt para a geração"); images: Optional[List[str]] = None; format: Optional[str] = None; options: Optional[Dict[str, Any]] = None; system: Optional[str] = None; template: Optional[str] = None; stream: Optional[bool] = False; raw: Optional[bool] = False; keep_alive: Optional[str] = None; context: Optional[Any] = None
@@ -61,7 +68,9 @@ data:
         except httpx.HTTPStatusError as e: error_details = e.response.text or "Sem detalhes"; print(f"<- ERRO: Ollama retornou erro {e.response.status_code}: {error_details}"); return {"error": f"MCP Tool: Ollama retornou um erro {e.response.status_code}", "details": error_details}
         except Exception as e: print(f"<- ERRO: Erro inesperado ao processar {path}: {e}"); return {"error": f"MCP Tool: Erro inesperado ao processar {path}", "details": str(e)}
 
-    # --- Tools ---
+    # --- Tools (Registradas no mcp_manager) ---
+
+    # --- CORREÇÃO: Prints ANTES dos decoradores ---
     print("-> Registrando tool: ping")
     @mcp_manager.tool()
     async def ping() -> Dict[str, Any]:
@@ -165,12 +174,16 @@ data:
         return await _handle_ollama_request("GET", "/api/version")
     print("-> Registro de todas as tools concluído.")
 
-    # --- Bloco para iniciar o servidor ---
-    if __name__ == "__main__":
-        try:
-            print("-> Iniciando servidor FastMCP HTTP via app.run() na porta 8000 (sem path explicito)...")
-            # --- CORREÇÃO: Remover path="/mcp" ---
-            app.run(transport="http", host="0.0.0.0", port=8000)
-        except Exception as e:
-            print(f"ERRO FATAL ao iniciar servidor app.run(): {e}")
-            sys.exit(f"Falha ao iniciar app.run(): {e}")
+    # --- Expor o app ASGI ---
+    try:
+        if hasattr(mcp_manager, 'http_app'):
+             app = mcp_manager.http_app()
+             print("Objeto ASGI 'app' criado via mcp_manager.http_app()")
+        elif hasattr(mcp_manager, 'app'): # Fallback
+             app = mcp_manager.app
+             print("Atribuído mcp_manager.app à variável 'app'")
+        else:
+             raise AttributeError("Não foi possível encontrar o atributo do app ASGI interno (.http_app ou .app)")
+    except Exception as e:
+        print(f"ERRO FATAL ao criar objeto ASGI: {e}")
+        sys.exit(f"Falha ao criar objeto ASGI: {e}")

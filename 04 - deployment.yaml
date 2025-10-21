@@ -14,7 +14,7 @@ spec:
         app: mcp-server
       annotations:
         # Incrementado para forçar reinício
-        gemini/force-restart-v20: "true"
+        gemini/force-restart-v21: "true"
     spec:
       containers:
         - name: mcp-server

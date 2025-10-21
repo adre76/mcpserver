@@ -51,8 +51,10 @@ data:
         except Exception as e: return {"error": f"MCP Tool: Erro inesperado ao processar {path}", "details": str(e)}
 
     # --- Tools ---
+    print("Iniciando registro dos tools MCP...")
     @mcp.tool
     async def ping():
+      print("Ping tool executado")
       return {"pong": True}
     @mcp.tool()
     async def ollama_generate(data: OllamaGenerateInput) -> Dict[str, Any]: """Gera uma conclusão de texto..."""; payload = data.model_dump(exclude_none=True); payload["stream"] = False; return await _handle_ollama_request("POST", "/api/generate", payload)
@@ -78,7 +80,8 @@ data:
     async def ollama_list_running_models() -> Dict[str, Any]: """Verifica e lista quais modelos..."""; return await _handle_ollama_request("GET", "/api/ps")
     @mcp.tool()
     async def ollama_get_version() -> Dict[str, Any]: """Retorna a string de versão..."""; return await _handle_ollama_request("GET", "/api/version")
-
+    print("Registro dos tools MCP finalizado")
+    
     # --- Iniciar servidor ---
     if __name__ == "__main__":
         print("Iniciando servidor FastMCP HTTP via mcp.run()...")

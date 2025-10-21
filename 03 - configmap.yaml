@@ -63,8 +63,6 @@ data:
         except Exception as e: print(f"<- ERRO: Erro inesperado ao processar {path}: {e}"); return {"error": f"MCP Tool: Erro inesperado ao processar {path}", "details": str(e)}
 
     # --- 2. Definição das Tools (Registradas no mcp_manager) ---
-
-    # --- CORREÇÃO: Prints ANTES dos decoradores ---
     print("-> Registrando tool: ping")
     @mcp_manager.tool()
     async def ping() -> Dict[str, Any]:

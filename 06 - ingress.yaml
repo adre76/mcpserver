@@ -15,7 +15,7 @@ spec:
       http:
         paths:
           # --- CORREÇÃO: Apontar para a raiz ---
-          - path: /
+          - path: /mcp
             pathType: Prefix # Captura /, /tools, /invoke, etc.
             backend:
               service:

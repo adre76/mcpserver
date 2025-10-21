@@ -14,9 +14,9 @@ spec:
     - host: "mcpserver.local"
       http:
         paths:
-          # --- Apontar para /mcp ---
-          - path: /mcp
-            pathType: Prefix
+          # --- CORREÇÃO: Apontar para a raiz ---
+          - path: /
+            pathType: Prefix # Captura /, /tools, /invoke, etc.
             backend:
               service:
                 name: mcp-server-service

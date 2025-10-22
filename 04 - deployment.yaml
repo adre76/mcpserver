@@ -15,10 +15,11 @@ spec:
       labels:
         app: fastmcp
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
       containers:
         - name: fastmcp
           image: ghcr.io/lionel-martis/fastmcp:latest
-          # Define o caminho para o ficheiro de configuração
           args:
             - "--config=/app/config.yaml"
           ports:

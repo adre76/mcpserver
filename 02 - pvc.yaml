@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: fastmcp-data-pvc
+  name: fastmcp-pvc
   namespace: fastmcp-server
 spec:
-  storageClassName: local-path
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi
+  storageClassName: local-path

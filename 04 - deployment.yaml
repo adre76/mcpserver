@@ -1,37 +1,43 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fastmcp-deployment
+  name: fastmcp-server
   namespace: fastmcp-server
   labels:
-    app: fastmcp
+    app: fastmcp-server
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: fastmcp
+      app: fastmcp-server
   template:
     metadata:
       labels:
-        app: fastmcp
+        app: fastmcp-server
     spec:
       containers:
-        - name: fastmcp
-          image: ghcr.io/louis-martis/fastmcp:latest
-          args:
-            - "--config=/app/config.yaml"
-          ports:
-            - containerPort: 8080
-          volumeMounts:
-            - name: config-volume
-              mountPath: /app/config.yaml
-              subPath: config.yaml
-            - name: data-volume
-              mountPath: /app/data
+      - name: fastmcp-server
+        image: python:3.11-slim-bookworm # Usar uma imagem Python mais recente
+        ports:
+        - containerPort: 8000
+        env:
+        - name: OLLAMA_SERVER_URL
+          value: "http://ollama.local:11434"
+        volumeMounts:
+        - name: fastmcp-config-volume
+          mountPath: /app/config
+        - name: fastmcp-data-volume
+          mountPath: /app/data
+        command: ["/bin/bash", "-c"]
+        args: 
+          - |
+            pip install --no-cache-dir -r /app/config/requirements.txt && \
+            uvicorn server:app --host 0.0.0.0 --port 8000
+        workingDir: /app/config
       volumes:
-        - name: config-volume
-          configMap:
-            name: fastmcp-config
-        - name: data-volume
-          persistentVolumeClaim:
-            claimName: fastmcp-data-pvc
+      - name: fastmcp-config-volume
+        configMap:
+          name: fastmcp-config
+      - name: fastmcp-data-volume
+        persistentVolumeClaim:
+          claimName: fastmcp-pvc

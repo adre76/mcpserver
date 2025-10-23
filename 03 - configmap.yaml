@@ -4,56 +4,267 @@ metadata:
   name: fastmcp-config
   namespace: fastmcp-server
 data:
-  config.yaml: |
-    server:
-      host: "0.0.0.0"
-      port: 8080
+  requirements.txt: |
+    fastmcp2
+    requests
+    uvicorn
+    fastapi
+  server.py: |
+    from fastapi import FastAPI, HTTPException
+    from fastapi.responses import JSONResponse
+    from fastmcp2 import Tool, ToolManager, ToolType, ToolTransportType
+    import requests
+    import os
 
-    backends:
-      - name: "ollama-local"
-        # Alteração aqui: Usamos o DNS interno do Kubernetes
-        url: "http://ollama-service.ollama.svc.cluster.local:11434"
-        
-        # O health check verifica a raiz do serviço Ollama
-        health_check:
-          path: "/" 
-          interval: "30s"
+    app = FastAPI()
+    tool_manager = ToolManager(transport_type=ToolTransportType.HTTP)
 
-    routes:
-      # Endpoints principais do Ollama
-      - path: "/api/generate"
-        backend: "ollama-local"
-      - path: "/api/chat"
-        backend: "ollama-local"
-      - path: "/api/embeddings"
-        backend: "ollama-local"
+    OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local:11434")
 
-      # Endpoints de gestão de modelos
-      - path: "/api/tags"
-        backend: "ollama-local"
-      - path: "/api/show"
-        backend: "ollama-local"
-      - path: "/api/copy"
-        backend: "ollama-local"
-      - path: "/api/delete"
-        backend: "ollama-local"
-      - path: "/api/pull"
-        backend: "ollama-local"
-      - path: "/api/push"
-        backend: "ollama-local"
-      - path: "/api/create"
-        backend: "ollama-local"
+    # Helper para fazer requests à Ollama API
+    def call_ollama_api(endpoint, method='POST', json_data=None, stream=False):
+        url = f"{OLLAMA_SERVER_URL}{endpoint}"
+        headers = {'Content-Type': 'application/json'}
+        try:
+            if method == 'POST':
+                response = requests.post(url, headers=headers, json=json_data, stream=stream)
+            elif method == 'GET':
+                response = requests.get(url, headers=headers, stream=stream)
+            else:
+                raise ValueError("Unsupported HTTP method")
+            response.raise_for_status()
+            if stream:
+                return response.iter_content(chunk_size=8192)
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise HTTPException(status_code=500, detail=f"Ollama API error: {e}")
 
-      # Endpoints de status
-      - path: "/api/ps"
-        backend: "ollama-local"
-      - path: "/api/version"
-        backend: "ollama-local"
-      
-      # Rota "catch-all" para qualquer outra coisa em /api/
-      - path: "/api/"
-        backend: "ollama-local"
-      
-      # Rota raiz (para o health check)
-      - path: "/"
-        backend: "ollama-local"
+    # Endpoints da API do Ollama como Tools
+
+    @tool_manager.tool(
+        name="generate_completion",
+        description="Gere uma resposta para um prompt (comando) fornecido com um modelo fornecido. Este é um endpoint de streaming (transmissão contínua), portanto haverá uma série de respostas. O objeto de resposta final incluirá estatísticas e dados adicionais da requisição.",
+        tool_type=ToolType.FUNCTION,
+        parameters={
+            "type": "object",
+            "properties": {
+                "model": {"type": "string", "description": "O nome do modelo Ollama (obrigatório)."},
+                "prompt": {"type": "string", "description": "O prompt para gerar uma resposta."},
+                "stream": {"type": "boolean", "description": "Se true, a resposta será transmitida como uma série de objetos JSON. Padrão: false.", "default": False},
+                "options": {"type": "object", "description": "Parâmetros adicionais do modelo, como temperatura."}
+            },
+            "required": ["model", "prompt"]
+        }
+    )
+    async def generate_completion(model: str, prompt: str, stream: bool = False, options: dict = None):
+        payload = {"model": model, "prompt": prompt, "stream": stream}
+        if options: payload["options"] = options
+        return call_ollama_api("/api/generate", json_data=payload, stream=stream)
+
+    @tool_manager.tool(
+        name="generate_chat_completion",
+        description="Gera a próxima mensagem em um chat com um modelo Ollama, mantendo o histórico de mensagens.",
+        tool_type=ToolType.FUNCTION,
+        parameters={
+            "type": "object",
+            "properties": {
+                "model": {"type": "string", "description": "O nome do modelo Ollama (obrigatório)."},
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "role": {"type": "string", "enum": ["system", "user", "assistant", "tool"]},
+                            "content": {"type": "string"},
+                            "images": {"type": "array", "items": {"type": "string"}, "description": "Lista de imagens codificadas em base64."}
+                        },
+                        "required": ["role", "content"]
+                    },
+                    "description": "O histórico de mensagens do chat."},
+                "stream": {"type": "boolean", "description": "Se true, a resposta será transmitida como uma série de objetos JSON. Padrão: false.", "default": False},
+                "options": {"type": "object", "description": "Parâmetros adicionais do modelo, como temperatura."}
+            },
+            "required": ["model", "messages"]
+        }
+    )
+    async def generate_chat_completion(model: str, messages: list, stream: bool = False, options: dict = None):
+        payload = {"model": model, "messages": messages, "stream": stream}
+        if options: payload["options"] = options
+        return call_ollama_api("/api/chat", json_data=payload, stream=stream)
+
+    @tool_manager.tool(
+        name="create_model",
+        description="Cria um modelo Ollama a partir de outro modelo, diretório safetensors ou arquivo GGUF.",
+        tool_type=ToolType.FUNCTION,
+        parameters={
+            "type": "object",
+            "properties": {
+                "model": {"type": "string", "description": "Nome do modelo a ser criado (obrigatório)."},
+                "from_model": {"type": "string", "description": "Nome de um modelo existente para criar o novo modelo (opcional)."},
+                "quantize": {"type": "string", "description": "Tipo de quantização a ser aplicada (opcional)."},
+                "system": {"type": "string", "description": "Prompt do sistema para o modelo (opcional)."}
+            },
+            "required": ["model"]
+        }
+    )
+    async def create_model(model: str, from_model: str = None, quantize: str = None, system: str = None):
+        payload = {"model": model}
+        if from_model: payload["from"] = from_model
+        if quantize: payload["quantize"] = quantize
+        if system: payload["system"] = system
+        return call_ollama_api("/api/create", json_data=payload)
+
+    @tool_manager.tool(
+        name="list_local_models",
+        description="Lista os modelos Ollama disponíveis localmente.",
+        tool_type=ToolType.FUNCTION,
+        parameters={
+            "type": "object",
+            "properties": {}
+        }
+    )
+    async def list_local_models():
+        return call_ollama_api("/api/tags", method='GET')
+
+    @tool_manager.tool(
+        name="show_model_information",
+        description="Mostra informações sobre um modelo Ollama, incluindo detalhes, modelfile, template, parâmetros, licença e prompt do sistema.",
+        tool_type=ToolType.FUNCTION,
+        parameters={
+            "type": "object",
+            "properties": {
+                "model": {"type": "string", "description": "Nome do modelo para mostrar (obrigatório)."},
+                "verbose": {"type": "boolean", "description": "Se true, retorna dados completos para campos de resposta detalhados. Padrão: false.", "default": False}
+            },
+            "required": ["model"]
+        }
+    )
+    async def show_model_information(model: str, verbose: bool = False):
+        payload = {"model": model, "verbose": verbose}
+        return call_ollama_api("/api/show", json_data=payload)
+
+    @tool_manager.tool(
+        name="copy_model",
+        description="Copia um modelo Ollama existente para um novo nome.",
+        tool_type=ToolType.FUNCTION,
+        parameters={
+            "type": "object",
+            "properties": {
+                "source_model": {"type": "string", "description": "Nome do modelo de origem (obrigatório)."},
+                "destination_model": {"type": "string", "description": "Nome do modelo de destino (obrigatório)."}
+            },
+            "required": ["source_model", "destination_model"]
+        }
+    )
+    async def copy_model(source_model: str, destination_model: str):
+        payload = {"source": source_model, "destination": destination_model}
+        return call_ollama_api("/api/copy", json_data=payload)
+
+    @tool_manager.tool(
+        name="delete_model",
+        description="Exclui um modelo Ollama.",
+        tool_type=ToolType.FUNCTION,
+        parameters={
+            "type": "object",
+            "properties": {
+                "model": {"type": "string", "description": "Nome do modelo a ser excluído (obrigatório)."}
+            },
+            "required": ["model"]
+        }
+    )
+    async def delete_model(model: str):
+        payload = {"name": model}
+        return call_ollama_api("/api/delete", method='DELETE', json_data=payload)
+
+    @tool_manager.tool(
+        name="pull_model",
+        description="Baixa um modelo Ollama do registro.",
+        tool_type=ToolType.FUNCTION,
+        parameters={
+            "type": "object",
+            "properties": {
+                "model": {"type": "string", "description": "Nome do modelo a ser baixado (obrigatório)."},
+                "insecure": {"type": "boolean", "description": "Permitir pull de registros não seguros. Padrão: false.", "default": False},
+                "stream": {"type": "boolean", "description": "Se true, a resposta será transmitida. Padrão: false.", "default": False}
+            },
+            "required": ["model"]
+        }
+    )
+    async def pull_model(model: str, insecure: bool = False, stream: bool = False):
+        payload = {"name": model, "insecure": insecure, "stream": stream}
+        return call_ollama_api("/api/pull", json_data=payload, stream=stream)
+
+    @tool_manager.tool(
+        name="push_model",
+        description="Envia um modelo Ollama para um registro.",
+        tool_type=ToolType.FUNCTION,
+        parameters={
+            "type": "object",
+            "properties": {
+                "model": {"type": "string", "description": "Nome do modelo a ser enviado (obrigatório)."},
+                "insecure": {"type": "boolean", "description": "Permitir push para registros não seguros. Padrão: false.", "default": False},
+                "stream": {"type": "boolean", "description": "Se true, a resposta será transmitida. Padrão: false.", "default": False}
+            },
+            "required": ["model"]
+        }
+    )
+    async def push_model(model: str, insecure: bool = False, stream: bool = False):
+        payload = {"name": model, "insecure": insecure, "stream": stream}
+        return call_ollama_api("/api/push", json_data=payload, stream=stream)
+
+    @tool_manager.tool(
+        name="generate_embeddings",
+        description="Gera embeddings a partir de um modelo Ollama.",
+        tool_type=ToolType.FUNCTION,
+        parameters={
+            "type": "object",
+            "properties": {
+                "model": {"type": "string", "description": "Nome do modelo para gerar embeddings (obrigatório)."},
+                "prompt": {"type": "string", "description": "Texto para gerar embeddings (obrigatório)."}
+            },
+            "required": ["model", "prompt"]
+        }
+    )
+    async def generate_embeddings(model: str, prompt: str):
+        payload = {"model": model, "prompt": prompt}
+        return call_ollama_api("/api/embeddings", json_data=payload)
+
+    @tool_manager.tool(
+        name="list_running_models",
+        description="Lista os modelos Ollama que estão atualmente carregados na memória.",
+        tool_type=ToolType.FUNCTION,
+        parameters={
+            "type": "object",
+            "properties": {}
+        }
+    )
+    async def list_running_models():
+        return call_ollama_api("/api/ps", method='GET')
+
+    @tool_manager.tool(
+        name="get_ollama_version",
+        description="Recupera a versão do Ollama.",
+        tool_type=ToolType.FUNCTION,
+        parameters={
+            "type": "object",
+            "properties": {}
+        }
+    )
+    async def get_ollama_version():
+        return call_ollama_api("/api/version", method='GET')
+
+    @app.get("/tools.json")
+    async def get_tools_json():
+        return JSONResponse(tool_manager.get_tools_json())
+
+    @app.get("/tools")
+    async def get_tools_yaml():
+        return tool_manager.get_tools_yaml()
+
+    @app.post("/tool_call/{tool_name}")
+    async def tool_call(tool_name: str, args: dict):
+        return await tool_manager.handle_tool_call(tool_name, args)
+
+    if __name__ == "__main__":
+        import uvicorn
+        uvicorn.run(app, host="0.0.0.0", port=8000)

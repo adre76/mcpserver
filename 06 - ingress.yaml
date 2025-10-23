@@ -4,27 +4,18 @@ metadata:
   name: fastmcp-ingress
   namespace: fastmcp-server
   annotations:
-    # Define a classe do Ingress para Nginx
-    kubernetes.io/ingress.class: "nginx"
-
-    # --- Timeouts para LLMs ---
-    # Aumenta o tempo de espera pela resposta do backend (Ollama)
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-    # Aumenta o tempo para enviar pedidos grandes
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
-
-    # --- Tamanho do Pedido para LLMs ---
-    # Permite prompts/contextos maiores (ex: 50MB)
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
 spec:
+  ingressClassName: nginx
   rules:
-    - host: "mpcserver.local"
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: fastmcp-service
-                port:
-                  number: 80
+  - host: mcpserver.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: fastmcp-service
+            port:
+              number: 80

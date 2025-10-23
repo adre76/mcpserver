@@ -4,10 +4,10 @@ metadata:
   name: fastmcp-service
   namespace: fastmcp-server
 spec:
-  type: ClusterIP
   selector:
-    app: fastmcp
+    app: fastmcp-server
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 8080
+      targetPort: 8000
+  type: ClusterIP

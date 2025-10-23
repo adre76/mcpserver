@@ -5,7 +5,7 @@ metadata:
   namespace: fastmcp-server
 data:
   requirements.txt: |
-    fastmcp2
+    fastmcp
     requests
     uvicorn
     fastapi

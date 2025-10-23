@@ -5,14 +5,14 @@ metadata:
   namespace: fastmcp-server
 data:
   requirements.txt: |
-    fastmcp
+    fastmcp2
     requests
     uvicorn
     fastapi
   server.py: |
     from fastapi import FastAPI, HTTPException
     from fastapi.responses import JSONResponse
-    from fastmcp import Tool, ToolManager, ToolType, ToolTransportType
+    from fastmcp2 import Tool, ToolManager, ToolType, ToolTransportType
     import requests
     import os
 
@@ -21,7 +21,7 @@ data:
 
     OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local:11434")
 
-    # Helper para fazer requests à Ollama API
+    # Helper function to make requests to Ollama API
     def call_ollama_api(endpoint, method='POST', json_data=None, stream=False):
         url = f"{OLLAMA_SERVER_URL}{endpoint}"
         headers = {'Content-Type': 'application/json'}
@@ -43,7 +43,7 @@ data:
 
     @tool_manager.tool(
         name="generate_completion",
-        description="Gere uma resposta para um prompt (comando) fornecido com um modelo fornecido. Este é um endpoint de streaming (transmissão contínua), portanto haverá uma série de respostas. O objeto de resposta final incluirá estatísticas e dados adicionais da requisição.",
+        description="Gera uma conclusão para um dado prompt com um modelo Ollama.",
         tool_type=ToolType.FUNCTION,
         parameters={
             "type": "object",

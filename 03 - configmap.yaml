@@ -18,8 +18,8 @@ data:
     from typing import List, Optional, Dict, Any, Literal
     from pydantic import BaseModel, Field
 
-    # --- 1. Crie a instância MCP PRIMEIRO ---
-    mcp = FastMCP() 
+    # --- 1. Crie a instância MCP em modo STATELESS ---
+    mcp = FastMCP(stateless_http=True) # <--- CORREÇÃO AQUI
 
     OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local:11434")
 
@@ -48,9 +48,7 @@ data:
             raise HTTPException(status_code=500, detail=f"Ollama API error: {e}")
 
     # --- 2. Defina TODAS as tools na instância 'mcp' ---
-    # [ ... todas as suas 12 funções @mcp.tool ... ]
-    # [ ... (não preciso repetir todas aqui, elas estão corretas) ... ]
-
+    # [ ... (todas as suas 12 tools @mcp.tool) ... ]
     @mcp.tool(
         name="generate_completion",
         description="Gera uma conclusão para um dado prompt com um modelo Ollama."
@@ -151,7 +149,7 @@ data:
 
 
     # --- 3. CRIE o app MCP (mcp_app) com a rota raiz ---
-    mcp_app = mcp.http_app(path="/", stateless=True)
+    mcp_app = mcp.http_app(path="/") # <--- CORREÇÃO AQUI (removido stateless=True)
 
     # --- 4. CRIE o app FastAPI principal, passando o lifespan do mcp_app ---
     app = FastAPI(lifespan=mcp_app.lifespan)

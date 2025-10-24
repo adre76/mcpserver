@@ -9,17 +9,27 @@ data:
     requests
     uvicorn
     fastapi
+    pydantic
   server.py: |
     from fastapi import FastAPI, HTTPException
     from fastapi.responses import JSONResponse
-    from fastmcp import FastMCP # <--- CORREÇÃO 1: Imports atualizados
+    from fastmcp import FastMCP
     import requests
     import os
+    from typing import List, Optional, Dict, Any, Literal
+    from pydantic import BaseModel, Field
 
     app = FastAPI()
-    mcp = FastMCP() # <--- CORREÇÃO 2: Instanciação atualizada
+    mcp = FastMCP() 
 
     OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local:11434")
+
+    # --- CORREÇÃO: Definir modelo Pydantic para o parâmetro 'messages' ---
+    class Message(BaseModel):
+        role: Literal["system", "user", "assistant", "tool"]
+        content: str
+        images: Optional[List[str]] = Field(default=None, description="Lista de imagens codificadas em base64.")
+    # --- Fim da Correção ---
 
     # Helper function to make requests to Ollama API
     def call_ollama_api(endpoint, method='POST', json_data=None, stream=False):
@@ -43,71 +53,31 @@ data:
 
     @mcp.tool(
         name="generate_completion",
-        description="Gera uma conclusão para um dado prompt com um modelo Ollama.",
-        # <--- CORREÇÃO 3: 'tool_type' removido daqui
-        parameters={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string", "description": "O nome do modelo Ollama (obrigatório)."},
-                "prompt": {"type": "string", "description": "O prompt para gerar uma resposta."},
-                "stream": {"type": "boolean", "description": "Se true, a resposta será transmitida como uma série de objetos JSON. Padrão: false.", "default": False},
-                "options": {"type": "object", "description": "Parâmetros adicionais do modelo, como temperatura."}
-            },
-            "required": ["model", "prompt"]
-        }
+        description="Gera uma conclusão para um dado prompt com um modelo Ollama."
+        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
-    async def generate_completion(model: str, prompt: str, stream: bool = False, options: dict = None):
+    async def generate_completion(model: str, prompt: str, stream: bool = False, options: Optional[Dict[str, Any]] = None):
         payload = {"model": model, "prompt": prompt, "stream": stream}
         if options: payload["options"] = options
         return call_ollama_api("/api/generate", json_data=payload, stream=stream)
 
     @mcp.tool(
         name="generate_chat_completion",
-        description="Gera a próxima mensagem em um chat com um modelo Ollama, mantendo o histórico de mensagens.",
-        # <--- CORREÇÃO 3: 'tool_type' removido daqui
-        parameters={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string", "description": "O nome do modelo Ollama (obrigatório)."},
-                "messages": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "role": {"type": "string", "enum": ["system", "user", "assistant", "tool"]},
-                            "content": {"type": "string"},
-                            "images": {"type": "array", "items": {"type": "string"}, "description": "Lista de imagens codificadas em base64."}
-                        },
-                        "required": ["role", "content"]
-                    },
-                    "description": "O histórico de mensagens do chat."},
-                "stream": {"type": "boolean", "description": "Se true, a resposta será transmitida como uma série de objetos JSON. Padrão: false.", "default": False},
-                "options": {"type": "object", "description": "Parâmetros adicionais do modelo, como temperatura."}
-            },
-            "required": ["model", "messages"]
-        }
+        description="Gera a próxima mensagem em um chat com um modelo Ollama, mantendo o histórico de mensagens."
+        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
-    async def generate_chat_completion(model: str, messages: list, stream: bool = False, options: dict = None):
-        payload = {"model": model, "messages": messages, "stream": stream}
+    async def generate_chat_completion(model: str, messages: List[Message], stream: bool = False, options: Optional[Dict[str, Any]] = None):
+        # A validação de 'messages' agora é feita pelo Pydantic
+        payload = {"model": model, "messages": [msg.dict(exclude_none=True) for msg in messages], "stream": stream}
         if options: payload["options"] = options
         return call_ollama_api("/api/chat", json_data=payload, stream=stream)
 
     @mcp.tool(
         name="create_model",
-        description="Cria um modelo Ollama a partir de outro modelo, diretório safetensors ou arquivo GGUF.",
-        # <--- CORREÇÃO 3: 'tool_type' removido daqui
-        parameters={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string", "description": "Nome do modelo a ser criado (obrigatório)."},
-                "from_model": {"type": "string", "description": "Nome de um modelo existente para criar o novo modelo (opcional)."},
-                "quantize": {"type": "string", "description": "Tipo de quantização a ser aplicada (opcional)."},
-                "system": {"type": "string", "description": "Prompt do sistema para o modelo (opcional)."}
-            },
-            "required": ["model"]
-        }
+        description="Cria um modelo Ollama a partir de outro modelo, diretório safetensors ou arquivo GGUF."
+        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
-    async def create_model(model: str, from_model: str = None, quantize: str = None, system: str = None):
+    async def create_model(model: str, from_model: Optional[str] = None, quantize: Optional[str] = None, system: Optional[str] = None):
         payload = {"model": model}
         if from_model: payload["from"] = from_model
         if quantize: payload["quantize"] = quantize
@@ -116,28 +86,16 @@ data:
 
     @mcp.tool(
         name="list_local_models",
-        description="Lista os modelos Ollama disponíveis localmente.",
-        # <--- CORREÇÃO 3: 'tool_type' removido daqui
-        parameters={
-            "type": "object",
-            "properties": {}
-        }
+        description="Lista os modelos Ollama disponíveis localmente."
+        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def list_local_models():
         return call_ollama_api("/api/tags", method='GET')
 
     @mcp.tool(
         name="show_model_information",
-        description="Mostra informações sobre um modelo Ollama, incluindo detalhes, modelfile, template, parâmetros, licença e prompt do sistema.",
-        # <--- CORREÇÃO 3: 'tool_type' removido daqui
-        parameters={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string", "description": "Nome do modelo para mostrar (obrigatório)."},
-                "verbose": {"type": "boolean", "description": "Se true, retorna dados completos para campos de resposta detalhados. Padrão: false.", "default": False}
-            },
-            "required": ["model"]
-        }
+        description="Mostra informações sobre um modelo Ollama, incluindo detalhes, modelfile, template, parâmetros, licença e prompt do sistema."
+        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def show_model_information(model: str, verbose: bool = False):
         payload = {"model": model, "verbose": verbose}
@@ -145,16 +103,8 @@ data:
 
     @mcp.tool(
         name="copy_model",
-        description="Copia um modelo Ollama existente para um novo nome.",
-        # <--- CORREÇÃO 3: 'tool_type' removido daqui
-        parameters={
-            "type": "object",
-            "properties": {
-                "source_model": {"type": "string", "description": "Nome do modelo de origem (obrigatório)."},
-                "destination_model": {"type": "string", "description": "Nome do modelo de destino (obrigatório)."}
-            },
-            "required": ["source_model", "destination_model"]
-        }
+        description="Copia um modelo Ollama existente para um novo nome."
+        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def copy_model(source_model: str, destination_model: str):
         payload = {"source": source_model, "destination": destination_model}
@@ -162,15 +112,8 @@ data:
 
     @mcp.tool(
         name="delete_model",
-        description="Exclui um modelo Ollama.",
-        # <--- CORREÇÃO 3: 'tool_type' removido daqui
-        parameters={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string", "description": "Nome do modelo a ser excluído (obrigatório)."}
-            },
-            "required": ["model"]
-        }
+        description="Exclui um modelo Ollama."
+        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def delete_model(model: str):
         payload = {"name": model}
@@ -178,17 +121,8 @@ data:
 
     @mcp.tool(
         name="pull_model",
-        description="Baixa um modelo Ollama do registro.",
-        # <--- CORREÇÃO 3: 'tool_type' removido daqui
-        parameters={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string", "description": "Nome do modelo a ser baixado (obrigatório)."},
-                "insecure": {"type": "boolean", "description": "Permitir pull de registros não seguros. Padrão: false.", "default": False},
-                "stream": {"type": "boolean", "description": "Se true, a resposta será transmitida. Padrão: false.", "default": False}
-            },
-            "required": ["model"]
-        }
+        description="Baixa um modelo Ollama do registro."
+        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def pull_model(model: str, insecure: bool = False, stream: bool = False):
         payload = {"name": model, "insecure": insecure, "stream": stream}
@@ -196,17 +130,8 @@ data:
 
     @mcp.tool(
         name="push_model",
-        description="Envia um modelo Ollama para um registro.",
-        # <--- CORREÇÃO 3: 'tool_type' removido daqui
-        parameters={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string", "description": "Nome do modelo a ser enviado (obrigatório)."},
-                "insecure": {"type": "boolean", "description": "Permitir push para registros não seguros. Padrão: false.", "default": False},
-                "stream": {"type": "boolean", "description": "Se true, a resposta será transmitida. Padrão: false.", "default": False}
-            },
-            "required": ["model"]
-        }
+        description="Envia um modelo Ollama para um registro."
+        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def push_model(model: str, insecure: bool = False, stream: bool = False):
         payload = {"name": model, "insecure": insecure, "stream": stream}
@@ -214,16 +139,8 @@ data:
 
     @mcp.tool(
         name="generate_embeddings",
-        description="Gera embeddings a partir de um modelo Ollama.",
-        # <--- CORREÇÃO 3: 'tool_type' removido daqui
-        parameters={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string", "description": "Nome do modelo para gerar embeddings (obrigatório)."},
-                "prompt": {"type": "string", "description": "Texto para gerar embeddings (obrigatório)."}
-            },
-            "required": ["model", "prompt"]
-        }
+        description="Gera embeddings a partir de um modelo Ollama."
+        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def generate_embeddings(model: str, prompt: str):
         payload = {"model": model, "prompt": prompt}
@@ -231,34 +148,23 @@ data:
 
     @mcp.tool(
         name="list_running_models",
-        description="Lista os modelos Ollama que estão atualmente carregados na memória.",
-        # <--- CORREÇÃO 3: 'tool_type' removido daqui
-        parameters={
-            "type": "object",
-            "properties": {}
-        }
+        description="Lista os modelos Ollama que estão atualmente carregados na memória."
+        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def list_running_models():
         return call_ollama_api("/api/ps", method='GET')
 
     @mcp.tool(
         name="get_ollama_version",
-        description="Recupera a versão do Ollama.",
-        # <--- CORREÇÃO 3: 'tool_type' removido daqui
-        parameters={
-            "type": "object",
-            "properties": {}
-        }
+        description="Recupera a versão do Ollama."
+        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def get_ollama_version():
         return call_ollama_api("/api/version", method='GET')
 
-    # <--- CORREÇÃO 4: Integração com FastAPI atualizada
     # Monte o servidor MCP no seu app FastAPI
-    # Isso criará automaticamente todos os endpoints necessários
     mcp_app = mcp.http_app()
     app.mount("/", mcp_app)
-
 
     if __name__ == "__main__":
         import uvicorn

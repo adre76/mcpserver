@@ -19,19 +19,18 @@ data:
     from typing import List, Optional, Dict, Any, Literal
     from pydantic import BaseModel, Field
 
-    app = FastAPI()
+    # 1. Crie a instância do MCP PRIMEIRO
     mcp = FastMCP() 
 
     OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local:11434")
 
-    # --- CORREÇÃO: Definir modelo Pydantic para o parâmetro 'messages' ---
+    # --- Definição do Modelo Pydantic ---
     class Message(BaseModel):
         role: Literal["system", "user", "assistant", "tool"]
         content: str
         images: Optional[List[str]] = Field(default=None, description="Lista de imagens codificadas em base64.")
-    # --- Fim da Correção ---
 
-    # Helper function to make requests to Ollama API
+    # --- Função Helper ---
     def call_ollama_api(endpoint, method='POST', json_data=None, stream=False):
         url = f"{OLLAMA_SERVER_URL}{endpoint}"
         headers = {'Content-Type': 'application/json'}
@@ -49,12 +48,11 @@ data:
         except requests.exceptions.RequestException as e:
             raise HTTPException(status_code=500, detail=f"Ollama API error: {e}")
 
-    # Endpoints da API do Ollama como Tools
+    # --- 2. Defina TODAS as tools na instância 'mcp' ---
 
     @mcp.tool(
         name="generate_completion",
         description="Gera uma conclusão para um dado prompt com um modelo Ollama."
-        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def generate_completion(model: str, prompt: str, stream: bool = False, options: Optional[Dict[str, Any]] = None):
         payload = {"model": model, "prompt": prompt, "stream": stream}
@@ -64,10 +62,8 @@ data:
     @mcp.tool(
         name="generate_chat_completion",
         description="Gera a próxima mensagem em um chat com um modelo Ollama, mantendo o histórico de mensagens."
-        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def generate_chat_completion(model: str, messages: List[Message], stream: bool = False, options: Optional[Dict[str, Any]] = None):
-        # A validação de 'messages' agora é feita pelo Pydantic
         payload = {"model": model, "messages": [msg.dict(exclude_none=True) for msg in messages], "stream": stream}
         if options: payload["options"] = options
         return call_ollama_api("/api/chat", json_data=payload, stream=stream)
@@ -75,7 +71,6 @@ data:
     @mcp.tool(
         name="create_model",
         description="Cria um modelo Ollama a partir de outro modelo, diretório safetensors ou arquivo GGUF."
-        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def create_model(model: str, from_model: Optional[str] = None, quantize: Optional[str] = None, system: Optional[str] = None):
         payload = {"model": model}
@@ -87,7 +82,6 @@ data:
     @mcp.tool(
         name="list_local_models",
         description="Lista os modelos Ollama disponíveis localmente."
-        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def list_local_models():
         return call_ollama_api("/api/tags", method='GET')
@@ -95,7 +89,6 @@ data:
     @mcp.tool(
         name="show_model_information",
         description="Mostra informações sobre um modelo Ollama, incluindo detalhes, modelfile, template, parâmetros, licença e prompt do sistema."
-        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def show_model_information(model: str, verbose: bool = False):
         payload = {"model": model, "verbose": verbose}
@@ -104,7 +97,6 @@ data:
     @mcp.tool(
         name="copy_model",
         description="Copia um modelo Ollama existente para um novo nome."
-        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def copy_model(source_model: str, destination_model: str):
         payload = {"source": source_model, "destination": destination_model}
@@ -113,7 +105,6 @@ data:
     @mcp.tool(
         name="delete_model",
         description="Exclui um modelo Ollama."
-        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def delete_model(model: str):
         payload = {"name": model}
@@ -122,7 +113,6 @@ data:
     @mcp.tool(
         name="pull_model",
         description="Baixa um modelo Ollama do registro."
-        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def pull_model(model: str, insecure: bool = False, stream: bool = False):
         payload = {"name": model, "insecure": insecure, "stream": stream}
@@ -131,7 +121,6 @@ data:
     @mcp.tool(
         name="push_model",
         description="Envia um modelo Ollama para um registro."
-        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def push_model(model: str, insecure: bool = False, stream: bool = False):
         payload = {"name": model, "insecure": insecure, "stream": stream}
@@ -140,7 +129,6 @@ data:
     @mcp.tool(
         name="generate_embeddings",
         description="Gera embeddings a partir de um modelo Ollama."
-        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def generate_embeddings(model: str, prompt: str):
         payload = {"model": model, "prompt": prompt}
@@ -149,7 +137,6 @@ data:
     @mcp.tool(
         name="list_running_models",
         description="Lista os modelos Ollama que estão atualmente carregados na memória."
-        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def list_running_models():
         return call_ollama_api("/api/ps", method='GET')
@@ -157,15 +144,22 @@ data:
     @mcp.tool(
         name="get_ollama_version",
         description="Recupera a versão do Ollama."
-        # --- CORREÇÃO: Bloco 'parameters' removido ---
     )
     async def get_ollama_version():
         return call_ollama_api("/api/version", method='GET')
 
-    # Monte o servidor MCP no seu app FastAPI
-    mcp_app = mcp.http_app()
-    app.mount("/", mcp_app)
+
+    # --- 3. CRIE o app FastAPI a partir da instância 'mcp' ---
+    # Este 'app' agora conterá todas as rotas das tools
+    app = mcp.http_app()
+
+    # 4. (Opcional) Adicione uma rota raiz para health check
+    @app.get("/")
+    async def read_root():
+        return {"message": "FastMCP Ollama Server is running. See /docs for API."}
+
 
     if __name__ == "__main__":
         import uvicorn
+        # O Uvicorn irá carregar o objeto 'app' que agora está cheio de rotas
         uvicorn.run(app, host="0.0.0.0", port=8000)

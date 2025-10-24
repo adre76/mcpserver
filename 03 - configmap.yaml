@@ -150,7 +150,7 @@ data:
 
 
     # --- 3. CRIE o app FastAPI do MCP e MONTE ele no app principal ---
-    mcp_app = mcp.http_app()
+    mcp_app = mcp.http_app(path="/")
     app.mount("/mcp", mcp_app)
 
     # 4. (Opcional) Rota raiz no app principal para health check

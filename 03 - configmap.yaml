@@ -151,7 +151,7 @@ data:
 
 
     # --- 3. CRIE o app MCP (mcp_app) com a rota raiz ---
-    mcp_app = mcp.http_app(path="/")
+    mcp_app = mcp.http_app(path="/", stateless=True)
 
     # --- 4. CRIE o app FastAPI principal, passando o lifespan do mcp_app ---
     app = FastAPI(lifespan=mcp_app.lifespan)

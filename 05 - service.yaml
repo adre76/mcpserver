@@ -5,9 +5,8 @@ metadata:
   namespace: fastmcp-server
 spec:
   selector:
-    app: fastmcp-server
+    app: fastmcp-server  # <-- 1. "Seleciona" os pods do seu deployment.yaml
   ports:
     - protocol: TCP
-      port: 80
-      targetPort: 8000
-  type: ClusterIP
+      port: 80            # <-- 2. A porta que o Ingress usa
+      targetPort: 8000    # <-- 3. A porta que o Uvicorn usa dentro do pod

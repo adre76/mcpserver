@@ -12,12 +12,12 @@ data:
   server.py: |
     from fastapi import FastAPI, HTTPException
     from fastapi.responses import JSONResponse
-    from fastmcp import FastMCP, ToolType, ToolTransportType
+    from fastmcp import FastMCP # <--- CORREÇÃO 1: Imports atualizados
     import requests
     import os
 
     app = FastAPI()
-    mcp = FastMCP(app, transport_type=ToolTransportType.HTTP)
+    mcp = FastMCP() # <--- CORREÇÃO 2: Instanciação atualizada
 
     OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local:11434")
 
@@ -44,7 +44,7 @@ data:
     @mcp.tool(
         name="generate_completion",
         description="Gera uma conclusão para um dado prompt com um modelo Ollama.",
-        tool_type=ToolType.FUNCTION,
+        # <--- CORREÇÃO 3: 'tool_type' removido daqui
         parameters={
             "type": "object",
             "properties": {
@@ -64,7 +64,7 @@ data:
     @mcp.tool(
         name="generate_chat_completion",
         description="Gera a próxima mensagem em um chat com um modelo Ollama, mantendo o histórico de mensagens.",
-        tool_type=ToolType.FUNCTION,
+        # <--- CORREÇÃO 3: 'tool_type' removido daqui
         parameters={
             "type": "object",
             "properties": {
@@ -95,7 +95,7 @@ data:
     @mcp.tool(
         name="create_model",
         description="Cria um modelo Ollama a partir de outro modelo, diretório safetensors ou arquivo GGUF.",
-        tool_type=ToolType.FUNCTION,
+        # <--- CORREÇÃO 3: 'tool_type' removido daqui
         parameters={
             "type": "object",
             "properties": {
@@ -117,7 +117,7 @@ data:
     @mcp.tool(
         name="list_local_models",
         description="Lista os modelos Ollama disponíveis localmente.",
-        tool_type=ToolType.FUNCTION,
+        # <--- CORREÇÃO 3: 'tool_type' removido daqui
         parameters={
             "type": "object",
             "properties": {}
@@ -129,7 +129,7 @@ data:
     @mcp.tool(
         name="show_model_information",
         description="Mostra informações sobre um modelo Ollama, incluindo detalhes, modelfile, template, parâmetros, licença e prompt do sistema.",
-        tool_type=ToolType.FUNCTION,
+        # <--- CORREÇÃO 3: 'tool_type' removido daqui
         parameters={
             "type": "object",
             "properties": {
@@ -146,7 +146,7 @@ data:
     @mcp.tool(
         name="copy_model",
         description="Copia um modelo Ollama existente para um novo nome.",
-        tool_type=ToolType.FUNCTION,
+        # <--- CORREÇÃO 3: 'tool_type' removido daqui
         parameters={
             "type": "object",
             "properties": {
@@ -163,7 +163,7 @@ data:
     @mcp.tool(
         name="delete_model",
         description="Exclui um modelo Ollama.",
-        tool_type=ToolType.FUNCTION,
+        # <--- CORREÇÃO 3: 'tool_type' removido daqui
         parameters={
             "type": "object",
             "properties": {
@@ -179,7 +179,7 @@ data:
     @mcp.tool(
         name="pull_model",
         description="Baixa um modelo Ollama do registro.",
-        tool_type=ToolType.FUNCTION,
+        # <--- CORREÇÃO 3: 'tool_type' removido daqui
         parameters={
             "type": "object",
             "properties": {
@@ -197,7 +197,7 @@ data:
     @mcp.tool(
         name="push_model",
         description="Envia um modelo Ollama para um registro.",
-        tool_type=ToolType.FUNCTION,
+        # <--- CORREÇÃO 3: 'tool_type' removido daqui
         parameters={
             "type": "object",
             "properties": {
@@ -215,7 +215,7 @@ data:
     @mcp.tool(
         name="generate_embeddings",
         description="Gera embeddings a partir de um modelo Ollama.",
-        tool_type=ToolType.FUNCTION,
+        # <--- CORREÇÃO 3: 'tool_type' removido daqui
         parameters={
             "type": "object",
             "properties": {
@@ -232,7 +232,7 @@ data:
     @mcp.tool(
         name="list_running_models",
         description="Lista os modelos Ollama que estão atualmente carregados na memória.",
-        tool_type=ToolType.FUNCTION,
+        # <--- CORREÇÃO 3: 'tool_type' removido daqui
         parameters={
             "type": "object",
             "properties": {}
@@ -244,7 +244,7 @@ data:
     @mcp.tool(
         name="get_ollama_version",
         description="Recupera a versão do Ollama.",
-        tool_type=ToolType.FUNCTION,
+        # <--- CORREÇÃO 3: 'tool_type' removido daqui
         parameters={
             "type": "object",
             "properties": {}
@@ -253,17 +253,12 @@ data:
     async def get_ollama_version():
         return call_ollama_api("/api/version", method='GET')
 
-    @app.get("/tools.json")
-    async def get_tools_json():
-        return JSONResponse(mcp.get_tools_json())
+    # <--- CORREÇÃO 4: Integração com FastAPI atualizada
+    # Monte o servidor MCP no seu app FastAPI
+    # Isso criará automaticamente todos os endpoints necessários
+    mcp_app = mcp.http_app()
+    app.mount("/", mcp_app)
 
-    @app.get("/tools")
-    async def get_tools_yaml():
-        return mcp.get_tools_yaml()
-
-    @app.post("/tool_call/{tool_name}")
-    async def tool_call(tool_name: str, args: dict):
-        return await mcp.handle_tool_call(tool_name, args)
 
     if __name__ == "__main__":
         import uvicorn

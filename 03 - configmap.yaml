@@ -12,14 +12,14 @@ data:
     pydantic
   server.py: |
     from fastapi import FastAPI, HTTPException
-    from fastapi.responses import JSONResponse
     from fastmcp import FastMCP
     import requests
     import os
     from typing import List, Optional, Dict, Any, Literal
     from pydantic import BaseModel, Field
 
-    # 1. Crie a instância do MCP PRIMEIRO
+    # --- 1. Crie o app FastAPI principal e o app MCP ---
+    app = FastAPI()
     mcp = FastMCP() 
 
     OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local:11434")
@@ -149,17 +149,17 @@ data:
         return call_ollama_api("/api/version", method='GET')
 
 
-    # --- 3. CRIE o app FastAPI a partir da instância 'mcp' ---
-    # Este 'app' agora conterá todas as rotas das tools
-    app = mcp.http_app()
+    # --- 3. CRIE o app FastAPI do MCP e MONTE ele no app principal ---
+    mcp_app = mcp.http_app()
+    app.mount("/mcp", mcp_app)
 
-    # 4. (Opcional) Adicione uma rota raiz para health check
+    # 4. (Opcional) Rota raiz no app principal para health check
     @app.get("/")
     async def read_root():
-        return {"message": "FastMCP Ollama Server is running. See /docs for API."}
+        return {"message": "FastAPI root. MCP server is at /mcp/docs"}
 
 
     if __name__ == "__main__":
         import uvicorn
-        # O Uvicorn irá carregar o objeto 'app' que agora está cheio de rotas
+        # O Uvicorn irá carregar 'app', que agora tem o 'mcp_app' montado
         uvicorn.run(app, host="0.0.0.0", port=8000)

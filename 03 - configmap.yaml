@@ -19,17 +19,71 @@ data:
     from pydantic import BaseModel, Field
 
     # --- 1. Crie a instância MCP em modo STATELESS ---
-    mcp = FastMCP(stateless_http=True) # <--- CORREÇÃO AQUI
+    mcp = FastMCP(stateless_http=True)
 
     OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local:11434")
 
-    # --- Definição do Modelo Pydantic ---
-    class Message(BaseModel):
-        role: Literal["system", "user", "assistant", "tool"]
-        content: str
-        images: Optional[List[str]] = Field(default=None, description="Lista de imagens codificadas em base64.")
+    # --- 2. Modelos Pydantic para as Ferramentas MCP ---
+    # Estes modelos definem os "Inputs" para o LLM, 
+    # repletos de descrições para guiar a IA.
 
-    # --- Função Helper ---
+    class Message(BaseModel):
+        """Define a estrutura de uma única mensagem no histórico de chat."""
+        role: Literal["system", "user", "assistant", "tool"] = Field(..., description="O papel do autor da mensagem (system, user, ou assistant).")
+        content: str = Field(..., description="O conteúdo de texto da mensagem.")
+        images: Optional[List[str]] = Field(default=None, description="Uma lista opcional de imagens (codificadas em base64) associadas a esta mensagem.")
+
+    class GenerateCompletionInput(BaseModel):
+        model: str = Field(..., description="O nome exato do modelo a ser usado (ex: 'llama3', 'mistral').")
+        prompt: str = Field(..., description="O prompt ou pergunta completa do usuário a ser enviada ao modelo.")
+        system: Optional[str] = Field(default=None, description="Prompt do sistema (opcional) para sobrescrever o padrão do modelo.")
+        template: Optional[str] = Field(default=None, description="O template de prompt completo (opcional) para sobrescrever o padrão do modelo.")
+        context: Optional[List[int]] = Field(default=None, description="Contexto de uma resposta anterior (opcional) para manter a conversa.")
+        stream: bool = Field(default=False, description="Define se a resposta deve vir de uma vez (false) ou em pedaços (stream, true).")
+        raw: bool = Field(default=False, description="Se true, o prompt é passado 'cru' para o modelo sem formatação de template.")
+        images: Optional[List[str]] = Field(default=None, description="Uma lista opcional de imagens (codificadas em base64).")
+        options: Optional[Dict[str, Any]] = Field(default=None, description="Opções avançadas opcionais do Ollama (ex: 'temperature', 'top_p', 'num_ctx').")
+
+    class GenerateChatInput(BaseModel):
+        model: str = Field(..., description="O nome exato do modelo de chat a ser usado (ex: 'llama3:instruct').")
+        messages: List[Message] = Field(..., description="O histórico completo de mensagens do chat, na ordem correta.")
+        stream: bool = Field(default=False, description="Define se a resposta deve vir de uma vez (false) ou em pedaços (stream, true).")
+        options: Optional[Dict[str, Any]] = Field(default=None, description="Opções avançadas opcionais do Ollama (ex: 'temperature', 'top_p').")
+
+    class CreateModelInput(BaseModel):
+        model: str = Field(..., description="O nome para o novo modelo a ser criado (ex: 'meu-modelo-custom').")
+        from_model: str = Field(..., description="O nome do modelo base do qual este novo modelo será criado (ex: 'mistral').")
+        quantize: Optional[str] = Field(default=None, description="Nível de quantização a ser aplicado (opcional, ex: 'q4_0', 'q8_0').")
+        system: Optional[str] = Field(default=None, description="Define um prompt de sistema padrão para este modelo (opcional).")
+
+    class ShowModelInput(BaseModel):
+        model: str = Field(..., description="O nome do modelo local para inspecionar.")
+        verbose: bool = Field(default=False, description="Define se deve retornar informações mais detalhadas (verbose).")
+
+    class CopyModelInput(BaseModel):
+        source_model: str = Field(..., description="O nome do modelo local existente que será copiado.")
+        destination_model: str = Field(..., description="O novo nome para a cópia do modelo.")
+
+    class DeleteModelInput(BaseModel):
+        model: str = Field(..., description="O nome do modelo local a ser permanentemente excluído.")
+
+    class PullModelInput(BaseModel):
+        model: str = Field(..., description="O nome do modelo a ser baixado do registro (ex: 'llama3', 'mistral:latest').")
+        insecure: bool = Field(default=False, description="Permitir conexões 'inseguras' (http) com o registro (não recomendado).")
+        stream: bool = Field(default=False, description="Define se o progresso do download deve vir em pedaços (stream, true).")
+
+    class PushModelInput(BaseModel):
+        model: str = Field(..., description="O nome do modelo local a ser enviado para o registro.")
+        insecure: bool = Field(default=False, description="Permitir conexões 'inseguras' (http) com o registro (não recomendado).")
+        stream: bool = Field(default=False, description="Define se o progresso do upload deve vir em pedaços (stream, true).")
+
+    class GenerateEmbeddingsInput(BaseModel):
+        model: str = Field(..., description="O nome do modelo de embeddings a ser usado.")
+        prompt: str = Field(..., description="O texto a ser transformado em um vetor de embedding.")
+        options: Optional[Dict[str, Any]] = Field(default=None, description="Opções avançadas opcionais do Ollama (ex: 'temperature').")
+
+
+    # --- 3. Função Helper ---
     def call_ollama_api(endpoint, method='POST', json_data=None, stream=False):
         url = f"{OLLAMA_SERVER_URL}{endpoint}"
         headers = {'Content-Type': 'application/json'}
@@ -38,131 +92,174 @@ data:
                 response = requests.post(url, headers=headers, json=json_data, stream=stream)
             elif method == 'GET':
                 response = requests.get(url, headers=headers, stream=stream)
+            elif method == 'DELETE':
+                response = requests.delete(url, headers=headers, json=json_data)
             else:
                 raise ValueError("Unsupported HTTP method")
+            
             response.raise_for_status()
+            
             if stream:
+                # Retorna um gerador em vez de iter_content
+                # Nota: Isso pode precisar de mais ajustes para streaming via FastAPI
                 return response.iter_content(chunk_size=8192)
+            
+            # Se for DELETE sem conteúdo, retorne um status
+            if response.status_code == 204 or not response.content:
+                return {"status": "success", "statusCode": response.status_code}
+                
             return response.json()
+        except requests.exceptions.HTTPError as e:
+            # Tenta pegar um detalhe de erro do Ollama, se houver
+            try:
+                error_detail = e.response.json().get("error", str(e))
+            except:
+                error_detail = str(e)
+            raise HTTPException(status_code=e.response.status_code, detail=f"Ollama API error: {error_detail}")
         except requests.exceptions.RequestException as e:
-            raise HTTPException(status_code=500, detail=f"Ollama API error: {e}")
+            raise HTTPException(status_code=500, detail=f"Ollama API connection error: {e}")
 
-    # --- 2. Defina TODAS as tools na instância 'mcp' ---
-    # [ ... (todas as suas 12 tools @mcp.tool) ... ]
+
+    # --- 4. Definição das Ferramentas (Tools) MCP ---
+
     @mcp.tool(
         name="generate_completion",
-        description="Gera uma conclusão para um dado prompt com um modelo Ollama."
+        description="Use para gerar texto, responder uma pergunta direta ou completar um prompt. Esta é a ferramenta principal para tarefas de 'completion' de prompt único."
     )
-    async def generate_completion(model: str, prompt: str, stream: bool = False, options: Optional[Dict[str, Any]] = None):
-        payload = {"model": model, "prompt": prompt, "stream": stream}
-        if options: payload["options"] = options
-        return call_ollama_api("/api/generate", json_data=payload, stream=stream)
+    async def generate_completion(input_data: GenerateCompletionInput):
+        payload = input_data.dict(exclude_none=True)
+        return call_ollama_api("/api/generate", json_data=payload, stream=input_data.stream)
 
     @mcp.tool(
         name="generate_chat_completion",
-        description="Gera a próxima mensagem em um chat com um modelo Ollama, mantendo o histórico de mensagens."
+        description="Use para continuar uma conversa ou responder em um contexto de chat. Esta é a ferramenta principal para interações de 'chat' multi-turn, pois ela aceita um histórico de mensagens."
     )
-    async def generate_chat_completion(model: str, messages: List[Message], stream: bool = False, options: Optional[Dict[str, Any]] = None):
-        payload = {"model": model, "messages": [msg.dict(exclude_none=True) for msg in messages], "stream": stream}
-        if options: payload["options"] = options
-        return call_ollama_api("/api/chat", json_data=payload, stream=stream)
+    async def generate_chat_completion(input_data: GenerateChatInput):
+        # Converte o Pydantic model 'messages' de volta para dicts
+        messages_dict = [msg.dict(exclude_none=True) for msg in input_data.messages]
+        payload = input_data.dict(exclude_none=True)
+        payload["messages"] = messages_dict
+        
+        return call_ollama_api("/api/chat", json_data=payload, stream=input_data.stream)
 
     @mcp.tool(
         name="create_model",
-        description="Cria um modelo Ollama a partir de outro modelo, diretório safetensors ou arquivo GGUF."
+        description="Use para criar um novo modelo Ollama (um 'Modelfile') a partir de um modelo base, opcionalmente adicionando um prompt de sistema ou definindo a quantização. Perfeito para criar variantes de modelos."
     )
-    async def create_model(model: str, from_model: Optional[str] = None, quantize: Optional[str] = None, system: Optional[str] = None):
-        payload = {"model": model}
-        if from_model: payload["from"] = from_model
-        if quantize: payload["quantize"] = quantize
-        if system: payload["system"] = system
+    async def create_model(input_data: CreateModelInput):
+        modelfile_content = f"FROM {input_data.from_model}\n"
+        if input_data.system:
+            # Usa aspas triplas para permitir prompts de sistema de múltiplas linhas
+            modelfile_content += f"SYSTEM \"\"\"{input_data.system}\"\"\"\n"
+        if input_data.quantize:
+            modelfile_content += f"PARAMETER quantize {input_data.quantize}\n"
+            
+        payload = {
+            "name": input_data.model,
+            "modelfile": modelfile_content,
+            "stream": False # 'create' pode ser stream, mas geralmente é melhor esperar
+        }
         return call_ollama_api("/api/create", json_data=payload)
 
     @mcp.tool(
         name="list_local_models",
-        description="Lista os modelos Ollama disponíveis localmente."
+        description="Use para listar todos os modelos de IA que estão baixados e disponíveis localmente na máquina do Ollama."
     )
     async def list_local_models():
         return call_ollama_api("/api/tags", method='GET')
 
     @mcp.tool(
         name="show_model_information",
-        description="Mostra informações sobre um modelo Ollama, incluindo detalhes, modelfile, template, parâmetros, licença e prompt do sistema."
+        description="Use para obter informações detalhadas sobre um modelo local específico, como seu Modelfile, template e parâmetros."
     )
-    async def show_model_information(model: str, verbose: bool = False):
-        payload = {"model": model, "verbose": verbose}
+    async def show_model_information(input_data: ShowModelInput):
+        payload = {"name": input_data.model, "verbose": input_data.verbose}
         return call_ollama_api("/api/show", json_data=payload)
 
     @mcp.tool(
         name="copy_model",
-        description="Copia um modelo Ollama existente para um novo nome."
+        description="Use para fazer uma cópia de um modelo local existente, dando-lhe um novo nome."
     )
-    async def copy_model(source_model: str, destination_model: str):
-        payload = {"source": source_model, "destination": destination_model}
+    async def copy_model(input_data: CopyModelInput):
+        payload = {"source": input_data.source_model, "destination": input_data.destination_model}
         return call_ollama_api("/api/copy", json_data=payload)
 
     @mcp.tool(
         name="delete_model",
-        description="Exclui um modelo Ollama."
+        description="Use para excluir permanentemente um modelo local do disco."
     )
-    async def delete_model(model: str):
-        payload = {"name": model}
+    async def delete_model(input_data: DeleteModelInput):
+        payload = {"name": input_data.model}
+        # O método 'DELETE' é especial
         return call_ollama_api("/api/delete", method='DELETE', json_data=payload)
 
     @mcp.tool(
         name="pull_model",
-        description="Baixa um modelo Ollama do registro."
+        description="Use para baixar um novo modelo do registro oficial do Ollama (ou outro) para a máquina local."
     )
-    async def pull_model(model: str, insecure: bool = False, stream: bool = False):
-        payload = {"name": model, "insecure": insecure, "stream": stream}
-        return call_ollama_api("/api/pull", json_data=payload, stream=stream)
+    async def pull_model(input_data: PullModelInput):
+        payload = {
+            "name": input_data.model, 
+            "insecure": input_data.insecure, 
+            "stream": input_data.stream
+        }
+        return call_ollama_api("/api/pull", json_data=payload, stream=input_data.stream)
 
     @mcp.tool(
         name="push_model",
-        description="Envia um modelo Ollama para um registro."
+        description="Use para enviar (upload) um modelo local para um registro Ollama."
     )
-    async def push_model(model: str, insecure: bool = False, stream: bool = False):
-        payload = {"name": model, "insecure": insecure, "stream": stream}
-        return call_ollama_api("/api/push", json_data=payload, stream=stream)
+    async def push_model(input_data: PushModelInput):
+        payload = {
+            "name": input_data.model, 
+            "insecure": input_data.insecure, 
+            "stream": input_data.stream
+        }
+        return call_ollama_api("/api/push", json_data=payload, stream=input_data.stream)
 
     @mcp.tool(
         name="generate_embeddings",
-        description="Gera embeddings a partir de um modelo Ollama."
+        description="Use para converter uma string de texto em um vetor numérico (embedding) usando um modelo específico."
     )
-    async def generate_embeddings(model: str, prompt: str):
-        payload = {"model": model, "prompt": prompt}
+    async def generate_embeddings(input_data: GenerateEmbeddingsInput):
+        payload = input_data.dict(exclude_none=True)
         return call_ollama_api("/api/embeddings", json_data=payload)
 
     @mcp.tool(
         name="list_running_models",
-        description="Lista os modelos Ollama que estão atualmente carregados na memória."
+        description="Use para verificar quais modelos estão atualmente carregados na memória (VRAM) e prontos para uso imediato."
     )
     async def list_running_models():
         return call_ollama_api("/api/ps", method='GET')
 
     @mcp.tool(
         name="get_ollama_version",
-        description="Recupera a versão do Ollama."
+        description="Use para verificar a versão exata do servidor Ollama que está em execução."
     )
     async def get_ollama_version():
         return call_ollama_api("/api/version", method='GET')
 
 
-    # --- 3. CRIE o app MCP (mcp_app) com a rota raiz ---
-    mcp_app = mcp.http_app(path="/") # <--- CORREÇÃO AQUI (removido stateless=True)
+    # --- 5. CRIE o app MCP (mcp_app) com a rota raiz ---
+    mcp_app = mcp.http_app(path="/") 
 
-    # --- 4. CRIE o app FastAPI principal, passando o lifespan do mcp_app ---
-    app = FastAPI(lifespan=mcp_app.lifespan)
+    # --- 6. CRIE o app FastAPI principal, passando o lifespan do mcp_app ---
+    app = FastAPI(
+        title="Servidor FastMCP para Ollama",
+        description="Expõe a API completa do Ollama como ferramentas MCP para o Copilot.",
+        lifespan=mcp_app.lifespan
+    )
 
-    # --- 5. MONTE o mcp_app no app principal ---
+    # --- 7. MONTE o mcp_app no app principal ---
     app.mount("/mcp", mcp_app)
 
-    # --- 6. (Opcional) Rota raiz no app principal para health check ---
+    # --- 8. (Opcional) Rota raiz no app principal para health check ---
     @app.get("/")
     async def read_root():
-        return {"message": "FastAPI root. MCP server is at /mcp/"}
+        return {"message": "Servidor FastMCP para Ollama está operacional. Endpoint MCP em /mcp/"}
 
 
     if __name__ == "__main__":
         import uvicorn
+        print(f"Iniciando servidor, conectando ao Ollama em: {OLLAMA_SERVER_URL}")
         uvicorn.run(app, host="0.0.0.0", port=8000)

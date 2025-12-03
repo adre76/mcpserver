@@ -21,7 +21,7 @@ data:
     # --- 1. Crie a instância MCP em modo STATELESS ---
     mcp = FastMCP(stateless_http=True)
 
-    OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local:11434")
+    OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local")
 
     # --- 2. Modelos Pydantic para as Ferramentas MCP ---
     # Estes modelos definem os "Inputs" para o LLM, 

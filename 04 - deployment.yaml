@@ -22,7 +22,7 @@ spec:
         - containerPort: 8000
         env:
         - name: OLLAMA_SERVER_URL
-          value: "http://ollama.local:11434"
+          value: "http://ollama.local"
         volumeMounts:
         - name: fastmcp-config-volume
           mountPath: /app/config

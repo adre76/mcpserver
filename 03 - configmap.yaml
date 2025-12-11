@@ -25,7 +25,7 @@ data:
 
     # --- 1. Instância MCP ---
     mcp = FastMCP(stateless_http=True)
-    OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local")
+    OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama-service.ollama:11434")
 
     # --- 2. Classes de Modelo para IGNORAR campos extras do n8n ---
     

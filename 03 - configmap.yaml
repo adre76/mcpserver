@@ -12,9 +12,6 @@ data:
     pydantic
   server.py: |
     import sys
-    # Print de debug para confirmar inicio no log
-    print("Iniciando carregamento do script server.py...", file=sys.stderr)
-
     from fastapi import FastAPI, HTTPException
     try:
         from fastmcp import FastMCP
@@ -23,205 +20,143 @@ data:
         from typing import List, Optional, Dict, Any, Literal
         from pydantic import BaseModel, Field
     except ImportError as e:
-        print(f"Erro critico de importacao: {e}", file=sys.stderr)
+        print(f"CRITICAL ERROR: Failed imports: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # --- 1. Crie a instância MCP ---
+    # --- 1. Instância MCP ---
     mcp = FastMCP(stateless_http=True)
-
     OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local")
 
-    # --- 2. Modelos Pydantic (SINTAXE UNIVERSAL V1/V2) ---
+    # --- 2. Classes de Modelo para IGNORAR campos extras do n8n ---
     
     class BaseIgnorer(BaseModel):
-        # A classe Config interna é suportada tanto pelo Pydantic V1 quanto pelo V2
-        class Config:
-            extra = "ignore"
+        # Esta configuração diz ao Pydantic V2 para ignorar campos desconhecidos (sessionId, etc)
+        # em vez de lançar erro.
+        model_config = {"extra": "ignore"}
+
+    # Usaremos esta classe 'EmptyInput' para funções que tecnicamente não precisariam de argumentos,
+    # mas que precisam receber o objeto JSON "sujo" que o n8n envia.
+    class EmptyInput(BaseIgnorer):
+        pass
 
     class Message(BaseIgnorer):
-        role: Literal["system", "user", "assistant", "tool"] = Field(..., description="Papel do autor.")
-        content: str = Field(..., description="Conteúdo da mensagem.")
-        images: Optional[List[str]] = Field(default=None, description="Imagens em base64.")
+        role: Literal["system", "user", "assistant", "tool"] = Field(..., description="Papel.")
+        content: str = Field(..., description="Conteúdo.")
+        images: Optional[List[str]] = Field(default=None, description="Imagens base64.")
 
     class GenerateCompletionInput(BaseIgnorer):
-        model: str = Field(..., description="Nome do modelo.")
-        prompt: str = Field(..., description="Prompt do usuário.")
-        system: Optional[str] = Field(default=None, description="Prompt do sistema.")
-        template: Optional[str] = Field(default=None, description="Template.")
-        context: Optional[List[int]] = Field(default=None, description="Contexto.")
+        model: str = Field(..., description="Modelo.")
+        prompt: str = Field(..., description="Prompt.")
         stream: bool = Field(default=False, description="Stream.")
-        raw: bool = Field(default=False, description="Raw mode.")
-        images: Optional[List[str]] = Field(default=None, description="Imagens.")
         options: Optional[Dict[str, Any]] = Field(default=None, description="Opções.")
 
     class GenerateChatInput(BaseIgnorer):
-        model: str = Field(..., description="Modelo de chat.")
+        model: str = Field(..., description="Modelo chat.")
         messages: List[Message] = Field(..., description="Histórico.")
         stream: bool = Field(default=False, description="Stream.")
         options: Optional[Dict[str, Any]] = Field(default=None, description="Opções.")
 
-    class CreateModelInput(BaseIgnorer):
-        model: str = Field(..., description="Nome do novo modelo.")
-        from_model: str = Field(..., description="Modelo base.")
-        quantize: Optional[str] = Field(default=None, description="Quantização.")
-        system: Optional[str] = Field(default=None, description="Prompt sistema.")
-
-    class ShowModelInput(BaseIgnorer):
+    class ModelInput(BaseIgnorer):
         model: str = Field(..., description="Nome do modelo.")
-        verbose: bool = Field(default=False, description="Verbose.")
 
     class CopyModelInput(BaseIgnorer):
         source_model: str = Field(..., description="Origem.")
         destination_model: str = Field(..., description="Destino.")
 
-    class DeleteModelInput(BaseIgnorer):
-        model: str = Field(..., description="Modelo a excluir.")
+    class CreateModelInput(BaseIgnorer):
+        model: str = Field(..., description="Nome.")
+        from_model: str = Field(..., description="Base.")
+        system: Optional[str] = Field(default=None, description="System Prompt.")
+        quantize: Optional[str] = Field(default=None, description="Quantização.")
 
-    class PullModelInput(BaseIgnorer):
-        model: str = Field(..., description="Modelo a baixar.")
-        insecure: bool = Field(default=False, description="Inseguro.")
-        stream: bool = Field(default=False, description="Stream.")
-
-    class PushModelInput(BaseIgnorer):
-        model: str = Field(..., description="Modelo a enviar.")
-        insecure: bool = Field(default=False, description="Inseguro.")
-        stream: bool = Field(default=False, description="Stream.")
-
-    class GenerateEmbeddingsInput(BaseIgnorer):
-        model: str = Field(..., description="Modelo.")
-        prompt: str = Field(..., description="Texto.")
-        options: Optional[Dict[str, Any]] = Field(default=None, description="Opções.")
-
-
-    # --- 3. Função Helper ---
-    def call_ollama_api(endpoint, method='POST', json_data=None, stream=False):
+    # --- 3. Helper Function ---
+    def call_ollama(endpoint, json_data=None, method='POST', stream=False):
         url = f"{OLLAMA_SERVER_URL}{endpoint}"
-        headers = {'Content-Type': 'application/json'}
         try:
-            if method == 'POST':
-                response = requests.post(url, headers=headers, json=json_data, stream=stream)
-            elif method == 'GET':
-                response = requests.get(url, headers=headers, stream=stream)
+            if method == 'GET':
+                r = requests.get(url, headers={'Content-Type': 'application/json'}, stream=stream)
             elif method == 'DELETE':
-                response = requests.delete(url, headers=headers, json=json_data)
+                r = requests.delete(url, headers={'Content-Type': 'application/json'}, json=json_data)
             else:
-                raise ValueError("Unsupported HTTP method")
-            
-            response.raise_for_status()
-            
-            if stream:
-                return response.iter_content(chunk_size=8192)
-            
-            if response.status_code == 204 or not response.content:
-                return {"status": "success", "statusCode": response.status_code}
-                
-            return response.json()
+                r = requests.post(url, headers={'Content-Type': 'application/json'}, json=json_data, stream=stream)
+            r.raise_for_status()
+            return r.iter_content(chunk_size=8192) if stream else r.json()
         except Exception as e:
-            detail = str(e)
-            # Tenta extrair erro JSON se disponivel
-            if hasattr(e, 'response') and e.response is not None:
-                try:
-                    detail = e.response.json().get('error', detail)
-                except:
-                    pass
-            print(f"Erro na chamada API Ollama: {detail}", file=sys.stderr)
-            raise HTTPException(status_code=500, detail=f"Ollama API error: {detail}")
+            # Log de erro para debug no pod
+            print(f"Erro chamando Ollama ({url}): {e}", file=sys.stderr)
+            raise HTTPException(status_code=500, detail=f"Ollama Error: {str(e)}")
 
-
-    # --- 4. Ferramentas MCP ---
+    # --- 4. Ferramentas (Tools) ---
+    
+    # ATENÇÃO: Todas as ferramentas agora usam modelos Pydantic (input_data ou ctx)
+    # e NENHUMA usa **kwargs.
 
     @mcp.tool(name="generate_completion")
     async def generate_completion(input_data: GenerateCompletionInput):
-        # .dict() é compativel com V1 e V2 (como deprecated, mas funciona)
-        payload = input_data.dict(exclude_none=True) 
-        return call_ollama_api("/api/generate", json_data=payload, stream=input_data.stream)
+        return call_ollama("/api/generate", json_data=input_data.model_dump(exclude_none=True), stream=input_data.stream)
 
     @mcp.tool(name="generate_chat_completion")
     async def generate_chat_completion(input_data: GenerateChatInput):
-        messages_dict = [msg.dict(exclude_none=True) for msg in input_data.messages]
-        payload = input_data.dict(exclude_none=True)
-        payload["messages"] = messages_dict
-        return call_ollama_api("/api/chat", json_data=payload, stream=input_data.stream)
+        d = input_data.model_dump(exclude_none=True)
+        # Garante que messages também seja convertido para dict
+        d["messages"] = [m.model_dump(exclude_none=True) for m in input_data.messages]
+        return call_ollama("/api/chat", json_data=d, stream=input_data.stream)
 
-    @mcp.tool(name="create_model")
-    async def create_model(input_data: CreateModelInput):
-        modelfile_content = f"FROM {input_data.from_model}\n"
-        if input_data.system:
-            modelfile_content += f"SYSTEM \"\"\"{input_data.system}\"\"\"\n"
-        if input_data.quantize:
-            modelfile_content += f"PARAMETER quantize {input_data.quantize}\n"
-        payload = {
-            "name": input_data.model,
-            "modelfile": modelfile_content,
-            "stream": False
-        }
-        return call_ollama_api("/api/create", json_data=payload)
-
+    # TRUQUE DO EMPTY INPUT: 
+    # Recebemos 'ctx' do tipo EmptyInput. O FastMCP vai pegar o JSON cheio de lixo do n8n,
+    # tentar encaixar em EmptyInput, e graças ao 'extra="ignore"', vai funcionar e resultar num objeto vazio.
+    
     @mcp.tool(name="list_local_models")
-    async def list_local_models(**kwargs: Any):
-        return call_ollama_api("/api/tags", method='GET')
+    async def list_local_models(ctx: EmptyInput = Field(default_factory=EmptyInput)):
+        return call_ollama("/api/tags", method='GET')
+
+    @mcp.tool(name="list_running_models")
+    async def list_running_models(ctx: EmptyInput = Field(default_factory=EmptyInput)):
+        return call_ollama("/api/ps", method='GET')
+
+    @mcp.tool(name="get_ollama_version")
+    async def get_ollama_version(ctx: EmptyInput = Field(default_factory=EmptyInput)):
+        return call_ollama("/api/version", method='GET')
+
+    @mcp.tool(name="pull_model")
+    async def pull_model(input_data: ModelInput):
+        return call_ollama("/api/pull", json_data=input_data.model_dump(exclude_none=True))
+    
+    @mcp.tool(name="delete_model")
+    async def delete_model(input_data: ModelInput):
+        return call_ollama("/api/delete", method='DELETE', json_data=input_data.model_dump(exclude_none=True))
 
     @mcp.tool(name="show_model_information")
-    async def show_model_information(input_data: ShowModelInput):
-        payload = {"name": input_data.model, "verbose": input_data.verbose}
-        return call_ollama_api("/api/show", json_data=payload)
+    async def show_model_information(input_data: ModelInput):
+        return call_ollama("/api/show", json_data=input_data.model_dump(exclude_none=True))
 
     @mcp.tool(name="copy_model")
     async def copy_model(input_data: CopyModelInput):
+        # Mapeia os campos do Pydantic para os nomes que a API do Ollama espera
         payload = {"source": input_data.source_model, "destination": input_data.destination_model}
-        return call_ollama_api("/api/copy", json_data=payload)
-
-    @mcp.tool(name="delete_model")
-    async def delete_model(input_data: DeleteModelInput):
-        payload = {"name": input_data.model}
-        return call_ollama_api("/api/delete", method='DELETE', json_data=payload)
-
-    @mcp.tool(name="pull_model")
-    async def pull_model(input_data: PullModelInput):
-        payload = {
-            "name": input_data.model, 
-            "insecure": input_data.insecure, 
-            "stream": input_data.stream
-        }
-        return call_ollama_api("/api/pull", json_data=payload, stream=input_data.stream)
-
-    @mcp.tool(name="push_model")
-    async def push_model(input_data: PushModelInput):
-        payload = {
-            "name": input_data.model, 
-            "insecure": input_data.insecure, 
-            "stream": input_data.stream
-        }
-        return call_ollama_api("/api/push", json_data=payload, stream=input_data.stream)
-
-    @mcp.tool(name="generate_embeddings")
-    async def generate_embeddings(input_data: GenerateEmbeddingsInput):
-        payload = input_data.dict(exclude_none=True)
-        return call_ollama_api("/api/embeddings", json_data=payload)
-
-    @mcp.tool(name="list_running_models")
-    async def list_running_models(**kwargs: Any):
-        return call_ollama_api("/api/ps", method='GET')
-
-    @mcp.tool(name="get_ollama_version")
-    async def get_ollama_version(**kwargs: Any):
-        return call_ollama_api("/api/version", method='GET')
-
+        return call_ollama("/api/copy", json_data=payload)
+    
+    @mcp.tool(name="create_model")
+    async def create_model(input_data: CreateModelInput):
+        modelfile = f"FROM {input_data.from_model}\n"
+        if input_data.system:
+            modelfile += f'SYSTEM """{input_data.system}"""\n'
+        if input_data.quantize:
+            modelfile += f"PARAMETER quantize {input_data.quantize}\n"
+        
+        payload = {"name": input_data.model, "modelfile": modelfile}
+        return call_ollama("/api/create", json_data=payload)
 
     # --- 5. Inicialização ---
-    mcp_app = mcp.http_app(path="/") 
-
-    app = FastAPI(
-        title="Servidor FastMCP para Ollama",
-        lifespan=mcp_app.lifespan
-    )
+    mcp_app = mcp.http_app()
+    app = FastAPI(lifespan=mcp_app.lifespan)
     app.mount("/mcp", mcp_app)
 
     @app.get("/")
-    async def read_root():
-        return {"message": "Servidor FastMCP operacional."}
+    async def root():
+        return {"status": "FastMCP Ollama Server Running"}
 
     if __name__ == "__main__":
         import uvicorn
-        print(f"Iniciando servidor na porta 8000...", file=sys.stderr)
+        print("Iniciando servidor FastMCP...", file=sys.stderr)
         uvicorn.run(app, host="0.0.0.0", port=8000)

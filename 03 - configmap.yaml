@@ -12,7 +12,7 @@ data:
     pydantic
   server.py: |
     import sys
-    print("Iniciando script server.py com correcao Whitelist...", file=sys.stderr)
+    print("Iniciando server.py com correcao EXPLICITA de argumentos...", file=sys.stderr)
 
     from fastapi import FastAPI, HTTPException
     try:
@@ -20,32 +20,22 @@ data:
         import requests
         import os
         from typing import List, Optional, Dict, Any, Literal
-        # Importando ConfigDict para compatibilidade total Pydantic V2
         from pydantic import BaseModel, Field, ConfigDict
     except ImportError as e:
         print(f"CRITICAL: Failed imports: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # --- 1. Instância MCP ---
     mcp = FastMCP(stateless_http=True)
-    OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama-service.ollama:11434")
+    OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local")
 
-    # --- 2. Classes de Modelo (Whitelist n8n) ---
-    
+    # --- 1. Modelos Base (Whitelist n8n) ---
     class BaseIgnorer(BaseModel):
-        # Configuração para ignorar quaisquer outros campos desconhecidos
         model_config = ConfigDict(extra='ignore')
-        
-        # --- CORREÇÃO PRINCIPAL: WHITELIST DOS CAMPOS DO N8N ---
-        # Declaramos estes campos explicitamente para que o Pydantic não reclame deles.
-        sessionId: Optional[str] = Field(default=None, description="Campo interno do n8n (ignorado)")
-        action: Optional[str] = Field(default=None, description="Campo interno do n8n (ignorado)")
-        chatInput: Optional[str] = Field(default=None, description="Campo interno do n8n (ignorado)")
-        toolCallId: Optional[str] = Field(default=None, description="Campo interno do n8n (ignorado)")
-
-    # Usado para funções que não precisam de input real
-    class EmptyInput(BaseIgnorer):
-        pass
+        # Definimos estes campos para que as ferramentas complexas (que usam Modelos) os aceitem
+        sessionId: Optional[str] = Field(default=None, description="Ignored")
+        action: Optional[str] = Field(default=None, description="Ignored")
+        chatInput: Optional[str] = Field(default=None, description="Ignored")
+        toolCallId: Optional[str] = Field(default=None, description="Ignored")
 
     class Message(BaseIgnorer):
         role: Literal["system", "user", "assistant", "tool"] = Field(..., description="Papel.")
@@ -77,11 +67,14 @@ data:
         system: Optional[str] = Field(default=None, description="System Prompt.")
         quantize: Optional[str] = Field(default=None, description="Quantização.")
 
-    # --- 3. Helper ---
+    # --- 2. Helper ---
     def call_ollama(endpoint, json_data=None, method='POST', stream=False):
         url = f"{OLLAMA_SERVER_URL}{endpoint}"
         try:
-            print(f"Chamando Ollama: {method} {url}", file=sys.stderr)
+            # Removemos campos do n8n antes de enviar ao Ollama para não sujar o log ou request
+            if json_data:
+                json_data = {k: v for k, v in json_data.items() if k not in ['sessionId', 'action', 'chatInput', 'toolCallId']}
+            
             if method == 'GET':
                 r = requests.get(url, headers={'Content-Type': 'application/json'}, stream=stream)
             elif method == 'DELETE':
@@ -91,50 +84,35 @@ data:
             r.raise_for_status()
             return r.iter_content(chunk_size=8192) if stream else r.json()
         except Exception as e:
-            print(f"Erro na API Ollama: {e}", file=sys.stderr)
-            # Retornar o erro como texto ajuda a debugar no n8n em vez de apenas falhar
+            print(f"Erro Ollama: {e}", file=sys.stderr)
             raise HTTPException(status_code=500, detail=f"Ollama Error: {str(e)}")
 
-    # --- 4. Ferramentas (Tools) ---
+    # --- 3. Ferramentas (Tools) ---
 
+    # Ferramentas COMPLEXAS (Usa Modelo Pydantic -> BaseIgnorer cuida dos campos extras)
     @mcp.tool(name="generate_completion")
     async def generate_completion(input_data: GenerateCompletionInput):
-        return call_ollama("/api/generate", json_data=input_data.model_dump(exclude_none=True, exclude={'sessionId','action','chatInput','toolCallId'}), stream=input_data.stream)
+        return call_ollama("/api/generate", json_data=input_data.model_dump(exclude_none=True), stream=input_data.stream)
 
     @mcp.tool(name="generate_chat_completion")
     async def generate_chat_completion(input_data: GenerateChatInput):
-        d = input_data.model_dump(exclude_none=True, exclude={'sessionId','action','chatInput','toolCallId'})
-        # Limpa as mensagens também
+        d = input_data.model_dump(exclude_none=True)
+        # Limpeza extra nas mensagens aninhadas
         if 'messages' in d:
-             d["messages"] = [
-                {k: v for k, v in m.items() if k not in ['sessionId','action','chatInput','toolCallId']} 
-                for m in d["messages"]
-            ]
+             d["messages"] = [{k: v for k, v in m.items() if k not in ['sessionId','action','chatInput','toolCallId']} for m in d["messages"]]
         return call_ollama("/api/chat", json_data=d, stream=input_data.stream)
-
-    @mcp.tool(name="list_local_models")
-    async def list_local_models(ctx: EmptyInput = Field(default_factory=EmptyInput)):
-        return call_ollama("/api/tags", method='GET')
-
-    @mcp.tool(name="list_running_models")
-    async def list_running_models(ctx: EmptyInput = Field(default_factory=EmptyInput)):
-        return call_ollama("/api/ps", method='GET')
-
-    @mcp.tool(name="get_ollama_version")
-    async def get_ollama_version(ctx: EmptyInput = Field(default_factory=EmptyInput)):
-        return call_ollama("/api/version", method='GET')
 
     @mcp.tool(name="pull_model")
     async def pull_model(input_data: ModelInput):
-        return call_ollama("/api/pull", json_data=input_data.model_dump(exclude_none=True, exclude={'sessionId','action','chatInput','toolCallId'}))
+        return call_ollama("/api/pull", json_data=input_data.model_dump(exclude_none=True))
     
     @mcp.tool(name="delete_model")
     async def delete_model(input_data: ModelInput):
-        return call_ollama("/api/delete", method='DELETE', json_data=input_data.model_dump(exclude_none=True, exclude={'sessionId','action','chatInput','toolCallId'}))
+        return call_ollama("/api/delete", method='DELETE', json_data=input_data.model_dump(exclude_none=True))
 
     @mcp.tool(name="show_model_information")
     async def show_model_information(input_data: ModelInput):
-        return call_ollama("/api/show", json_data=input_data.model_dump(exclude_none=True, exclude={'sessionId','action','chatInput','toolCallId'}))
+        return call_ollama("/api/show", json_data=input_data.model_dump(exclude_none=True))
 
     @mcp.tool(name="copy_model")
     async def copy_model(input_data: CopyModelInput):
@@ -151,16 +129,28 @@ data:
         payload = {"name": input_data.model, "modelfile": modelfile}
         return call_ollama("/api/create", json_data=payload)
 
-    # --- 5. Inicialização ---
+    # --- CORREÇÃO CRÍTICA AQUI ---
+    # Ferramentas SIMPLES (Sem input de usuário real)
+    # Definimos explicitamente os argumentos do n8n para que a validação passe.
+    
+    @mcp.tool(name="list_local_models")
+    async def list_local_models(sessionId: str = None, action: str = None, chatInput: str = None, toolCallId: str = None):
+        return call_ollama("/api/tags", method='GET')
+
+    @mcp.tool(name="list_running_models")
+    async def list_running_models(sessionId: str = None, action: str = None, chatInput: str = None, toolCallId: str = None):
+        return call_ollama("/api/ps", method='GET')
+
+    @mcp.tool(name="get_ollama_version")
+    async def get_ollama_version(sessionId: str = None, action: str = None, chatInput: str = None, toolCallId: str = None):
+        return call_ollama("/api/version", method='GET')
+
+
+    # --- 4. Inicialização ---
     mcp_app = mcp.http_app(path="/")
     app = FastAPI(lifespan=mcp_app.lifespan)
     app.mount("/mcp", mcp_app)
 
-    @app.get("/")
-    async def root():
-        return {"status": "FastMCP Ollama Server Running"}
-
     if __name__ == "__main__":
         import uvicorn
-        print("Iniciando servidor FastMCP na porta 8000...", file=sys.stderr)
         uvicorn.run(app, host="0.0.0.0", port=8000)

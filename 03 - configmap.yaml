@@ -12,6 +12,9 @@ data:
     pydantic
   server.py: |
     import sys
+    # Debug print para confirmar inicio
+    print("Iniciando script server.py...", file=sys.stderr)
+
     from fastapi import FastAPI, HTTPException
     try:
         from fastmcp import FastMCP
@@ -20,29 +23,29 @@ data:
         from typing import List, Optional, Dict, Any, Literal
         from pydantic import BaseModel, Field
     except ImportError as e:
-        print(f"CRITICAL ERROR: Failed imports: {e}", file=sys.stderr)
+        print(f"CRITICAL: Failed imports: {e}", file=sys.stderr)
         sys.exit(1)
 
     # --- 1. Instância MCP ---
+    # stateless_http=True é deprecated mas ainda funcional. 
+    # O ideal seria configurar no run(), mas manteremos assim por compatibilidade.
     mcp = FastMCP(stateless_http=True)
-    OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama-service.ollama:11434")
+    OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local")
 
-    # --- 2. Classes de Modelo para IGNORAR campos extras do n8n ---
+    # --- 2. Classes de Modelo (Correção Pydantic V2) ---
     
     class BaseIgnorer(BaseModel):
-        # Esta configuração diz ao Pydantic V2 para ignorar campos desconhecidos (sessionId, etc)
-        # em vez de lançar erro.
+        # Configuração correta para Pydantic V2 ignorar campos extras (sessionId, etc)
         model_config = {"extra": "ignore"}
 
-    # Usaremos esta classe 'EmptyInput' para funções que tecnicamente não precisariam de argumentos,
-    # mas que precisam receber o objeto JSON "sujo" que o n8n envia.
+    # Usado para funções que não precisam de input, mas recebem lixo do n8n
     class EmptyInput(BaseIgnorer):
         pass
 
     class Message(BaseIgnorer):
         role: Literal["system", "user", "assistant", "tool"] = Field(..., description="Papel.")
         content: str = Field(..., description="Conteúdo.")
-        images: Optional[List[str]] = Field(default=None, description="Imagens base64.")
+        images: Optional[List[str]] = Field(default=None, description="Imagens.")
 
     class GenerateCompletionInput(BaseIgnorer):
         model: str = Field(..., description="Modelo.")
@@ -51,7 +54,7 @@ data:
         options: Optional[Dict[str, Any]] = Field(default=None, description="Opções.")
 
     class GenerateChatInput(BaseIgnorer):
-        model: str = Field(..., description="Modelo chat.")
+        model: str = Field(..., description="Modelo.")
         messages: List[Message] = Field(..., description="Histórico.")
         stream: bool = Field(default=False, description="Stream.")
         options: Optional[Dict[str, Any]] = Field(default=None, description="Opções.")
@@ -69,7 +72,7 @@ data:
         system: Optional[str] = Field(default=None, description="System Prompt.")
         quantize: Optional[str] = Field(default=None, description="Quantização.")
 
-    # --- 3. Helper Function ---
+    # --- 3. Helper ---
     def call_ollama(endpoint, json_data=None, method='POST', stream=False):
         url = f"{OLLAMA_SERVER_URL}{endpoint}"
         try:
@@ -82,14 +85,10 @@ data:
             r.raise_for_status()
             return r.iter_content(chunk_size=8192) if stream else r.json()
         except Exception as e:
-            # Log de erro para debug no pod
             print(f"Erro chamando Ollama ({url}): {e}", file=sys.stderr)
             raise HTTPException(status_code=500, detail=f"Ollama Error: {str(e)}")
 
     # --- 4. Ferramentas (Tools) ---
-    
-    # ATENÇÃO: Todas as ferramentas agora usam modelos Pydantic (input_data ou ctx)
-    # e NENHUMA usa **kwargs.
 
     @mcp.tool(name="generate_completion")
     async def generate_completion(input_data: GenerateCompletionInput):
@@ -98,14 +97,10 @@ data:
     @mcp.tool(name="generate_chat_completion")
     async def generate_chat_completion(input_data: GenerateChatInput):
         d = input_data.model_dump(exclude_none=True)
-        # Garante que messages também seja convertido para dict
         d["messages"] = [m.model_dump(exclude_none=True) for m in input_data.messages]
         return call_ollama("/api/chat", json_data=d, stream=input_data.stream)
 
-    # TRUQUE DO EMPTY INPUT: 
-    # Recebemos 'ctx' do tipo EmptyInput. O FastMCP vai pegar o JSON cheio de lixo do n8n,
-    # tentar encaixar em EmptyInput, e graças ao 'extra="ignore"', vai funcionar e resultar num objeto vazio.
-    
+    # Funções sem argumentos usam EmptyInput para engolir os dados do n8n
     @mcp.tool(name="list_local_models")
     async def list_local_models(ctx: EmptyInput = Field(default_factory=EmptyInput)):
         return call_ollama("/api/tags", method='GET')
@@ -132,7 +127,6 @@ data:
 
     @mcp.tool(name="copy_model")
     async def copy_model(input_data: CopyModelInput):
-        # Mapeia os campos do Pydantic para os nomes que a API do Ollama espera
         payload = {"source": input_data.source_model, "destination": input_data.destination_model}
         return call_ollama("/api/copy", json_data=payload)
     
@@ -143,12 +137,13 @@ data:
             modelfile += f'SYSTEM """{input_data.system}"""\n'
         if input_data.quantize:
             modelfile += f"PARAMETER quantize {input_data.quantize}\n"
-        
         payload = {"name": input_data.model, "modelfile": modelfile}
         return call_ollama("/api/create", json_data=payload)
 
     # --- 5. Inicialização ---
-    mcp_app = mcp.http_app()
+    # RESTAURADO: path="/" é crucial para manter a compatibilidade com o mount
+    mcp_app = mcp.http_app(path="/")
+    
     app = FastAPI(lifespan=mcp_app.lifespan)
     app.mount("/mcp", mcp_app)
 
@@ -158,5 +153,5 @@ data:
 
     if __name__ == "__main__":
         import uvicorn
-        print("Iniciando servidor FastMCP...", file=sys.stderr)
+        print("Iniciando servidor FastMCP na porta 8000...", file=sys.stderr)
         uvicorn.run(app, host="0.0.0.0", port=8000)

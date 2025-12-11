@@ -26,7 +26,7 @@ data:
         sys.exit(1)
 
     mcp = FastMCP(stateless_http=True)
-    OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local")
+    OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama-service.ollama:11434")
 
     # --- 1. Modelos Base (Whitelist n8n) ---
     class BaseIgnorer(BaseModel):

@@ -11,77 +11,86 @@ data:
     fastapi
     pydantic
   server.py: |
+    import sys
+    # Print de debug para confirmar inicio no log
+    print("Iniciando carregamento do script server.py...", file=sys.stderr)
+
     from fastapi import FastAPI, HTTPException
-    from fastmcp import FastMCP
-    import requests
-    import os
-    from typing import List, Optional, Dict, Any, Literal
-    from pydantic import BaseModel, Field
+    try:
+        from fastmcp import FastMCP
+        import requests
+        import os
+        from typing import List, Optional, Dict, Any, Literal
+        from pydantic import BaseModel, Field
+    except ImportError as e:
+        print(f"Erro critico de importacao: {e}", file=sys.stderr)
+        sys.exit(1)
 
     # --- 1. Crie a instância MCP ---
     mcp = FastMCP(stateless_http=True)
 
     OLLAMA_SERVER_URL = os.getenv("OLLAMA_SERVER_URL", "http://ollama.local")
 
-    # --- 2. Modelos Pydantic (COM AJUSTE PARA IGNORAR EXTRAS DO N8N) ---
+    # --- 2. Modelos Pydantic (SINTAXE UNIVERSAL V1/V2) ---
     
     class BaseIgnorer(BaseModel):
-        # Esta config permite que o n8n envie 'sessionId', 'action', etc sem quebrar o modelo
-        model_config = {"extra": "ignore"}
+        # A classe Config interna é suportada tanto pelo Pydantic V1 quanto pelo V2
+        class Config:
+            extra = "ignore"
 
     class Message(BaseIgnorer):
-        role: Literal["system", "user", "assistant", "tool"] = Field(..., description="O papel do autor da mensagem.")
-        content: str = Field(..., description="O conteúdo de texto da mensagem.")
-        images: Optional[List[str]] = Field(default=None, description="Lista opcional de imagens em base64.")
+        role: Literal["system", "user", "assistant", "tool"] = Field(..., description="Papel do autor.")
+        content: str = Field(..., description="Conteúdo da mensagem.")
+        images: Optional[List[str]] = Field(default=None, description="Imagens em base64.")
 
     class GenerateCompletionInput(BaseIgnorer):
-        model: str = Field(..., description="Nome do modelo (ex: 'llama3').")
+        model: str = Field(..., description="Nome do modelo.")
         prompt: str = Field(..., description="Prompt do usuário.")
         system: Optional[str] = Field(default=None, description="Prompt do sistema.")
-        template: Optional[str] = Field(default=None, description="Template de prompt.")
-        context: Optional[List[int]] = Field(default=None, description="Contexto anterior.")
-        stream: bool = Field(default=False, description="Stream da resposta.")
-        raw: bool = Field(default=False, description="Prompt cru.")
-        images: Optional[List[str]] = Field(default=None, description="Imagens base64.")
-        options: Optional[Dict[str, Any]] = Field(default=None, description="Opções avançadas.")
+        template: Optional[str] = Field(default=None, description="Template.")
+        context: Optional[List[int]] = Field(default=None, description="Contexto.")
+        stream: bool = Field(default=False, description="Stream.")
+        raw: bool = Field(default=False, description="Raw mode.")
+        images: Optional[List[str]] = Field(default=None, description="Imagens.")
+        options: Optional[Dict[str, Any]] = Field(default=None, description="Opções.")
 
     class GenerateChatInput(BaseIgnorer):
-        model: str = Field(..., description="Nome do modelo de chat.")
-        messages: List[Message] = Field(..., description="Histórico de mensagens.")
-        stream: bool = Field(default=False, description="Stream da resposta.")
-        options: Optional[Dict[str, Any]] = Field(default=None, description="Opções avançadas.")
+        model: str = Field(..., description="Modelo de chat.")
+        messages: List[Message] = Field(..., description="Histórico.")
+        stream: bool = Field(default=False, description="Stream.")
+        options: Optional[Dict[str, Any]] = Field(default=None, description="Opções.")
 
     class CreateModelInput(BaseIgnorer):
         model: str = Field(..., description="Nome do novo modelo.")
         from_model: str = Field(..., description="Modelo base.")
-        quantize: Optional[str] = Field(default=None, description="Nível de quantização.")
-        system: Optional[str] = Field(default=None, description="Prompt de sistema padrão.")
+        quantize: Optional[str] = Field(default=None, description="Quantização.")
+        system: Optional[str] = Field(default=None, description="Prompt sistema.")
 
     class ShowModelInput(BaseIgnorer):
         model: str = Field(..., description="Nome do modelo.")
-        verbose: bool = Field(default=False, description="Detalhes verbose.")
+        verbose: bool = Field(default=False, description="Verbose.")
 
     class CopyModelInput(BaseIgnorer):
-        source_model: str = Field(..., description="Modelo origem.")
-        destination_model: str = Field(..., description="Modelo destino.")
+        source_model: str = Field(..., description="Origem.")
+        destination_model: str = Field(..., description="Destino.")
 
     class DeleteModelInput(BaseIgnorer):
         model: str = Field(..., description="Modelo a excluir.")
 
     class PullModelInput(BaseIgnorer):
         model: str = Field(..., description="Modelo a baixar.")
-        insecure: bool = Field(default=False, description="Conexão insegura.")
-        stream: bool = Field(default=False, description="Stream do download.")
+        insecure: bool = Field(default=False, description="Inseguro.")
+        stream: bool = Field(default=False, description="Stream.")
 
     class PushModelInput(BaseIgnorer):
         model: str = Field(..., description="Modelo a enviar.")
-        insecure: bool = Field(default=False, description="Conexão insegura.")
-        stream: bool = Field(default=False, description="Stream do upload.")
+        insecure: bool = Field(default=False, description="Inseguro.")
+        stream: bool = Field(default=False, description="Stream.")
 
     class GenerateEmbeddingsInput(BaseIgnorer):
-        model: str = Field(..., description="Modelo de embeddings.")
-        prompt: str = Field(..., description="Texto para vetor.")
-        options: Optional[Dict[str, Any]] = Field(default=None, description="Opções avançadas.")
+        model: str = Field(..., description="Modelo.")
+        prompt: str = Field(..., description="Texto.")
+        options: Optional[Dict[str, Any]] = Field(default=None, description="Opções.")
 
 
     # --- 3. Função Helper ---
@@ -107,28 +116,30 @@ data:
                 return {"status": "success", "statusCode": response.status_code}
                 
             return response.json()
-        except requests.exceptions.RequestException as e:
-             # Tratamento básico de erro para não quebrar o server
+        except Exception as e:
             detail = str(e)
+            # Tenta extrair erro JSON se disponivel
             if hasattr(e, 'response') and e.response is not None:
                 try:
                     detail = e.response.json().get('error', detail)
                 except:
                     pass
+            print(f"Erro na chamada API Ollama: {detail}", file=sys.stderr)
             raise HTTPException(status_code=500, detail=f"Ollama API error: {detail}")
 
 
-    # --- 4. Definição das Ferramentas (Tools) MCP ---
+    # --- 4. Ferramentas MCP ---
 
     @mcp.tool(name="generate_completion")
     async def generate_completion(input_data: GenerateCompletionInput):
-        payload = input_data.model_dump(exclude_none=True) # model_dump é o padrão novo do Pydantic v2
+        # .dict() é compativel com V1 e V2 (como deprecated, mas funciona)
+        payload = input_data.dict(exclude_none=True) 
         return call_ollama_api("/api/generate", json_data=payload, stream=input_data.stream)
 
     @mcp.tool(name="generate_chat_completion")
     async def generate_chat_completion(input_data: GenerateChatInput):
-        messages_dict = [msg.model_dump(exclude_none=True) for msg in input_data.messages]
-        payload = input_data.model_dump(exclude_none=True)
+        messages_dict = [msg.dict(exclude_none=True) for msg in input_data.messages]
+        payload = input_data.dict(exclude_none=True)
         payload["messages"] = messages_dict
         return call_ollama_api("/api/chat", json_data=payload, stream=input_data.stream)
 
@@ -146,7 +157,6 @@ data:
         }
         return call_ollama_api("/api/create", json_data=payload)
 
-    # --- ATENÇÃO: Adicionado **kwargs para ignorar argumentos extras do n8n ---
     @mcp.tool(name="list_local_models")
     async def list_local_models(**kwargs: Any):
         return call_ollama_api("/api/tags", method='GET')
@@ -186,21 +196,19 @@ data:
 
     @mcp.tool(name="generate_embeddings")
     async def generate_embeddings(input_data: GenerateEmbeddingsInput):
-        payload = input_data.model_dump(exclude_none=True)
+        payload = input_data.dict(exclude_none=True)
         return call_ollama_api("/api/embeddings", json_data=payload)
 
-    # --- ATENÇÃO: Adicionado **kwargs ---
     @mcp.tool(name="list_running_models")
     async def list_running_models(**kwargs: Any):
         return call_ollama_api("/api/ps", method='GET')
 
-    # --- ATENÇÃO: Adicionado **kwargs ---
     @mcp.tool(name="get_ollama_version")
     async def get_ollama_version(**kwargs: Any):
         return call_ollama_api("/api/version", method='GET')
 
 
-    # --- 5. Apps e Rotas ---
+    # --- 5. Inicialização ---
     mcp_app = mcp.http_app(path="/") 
 
     app = FastAPI(
@@ -215,5 +223,5 @@ data:
 
     if __name__ == "__main__":
         import uvicorn
-        print(f"Iniciando servidor, conectando ao Ollama em: {OLLAMA_SERVER_URL}")
+        print(f"Iniciando servidor na porta 8000...", file=sys.stderr)
         uvicorn.run(app, host="0.0.0.0", port=8000)
